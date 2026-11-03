@@ -12,29 +12,6 @@ const DEFAULT_CATEGORIES = [
   { id: 'other', name: '其他日常琐事', icon: '📌', color: '#94A3B8' }
 ];
 
-// App State
-let state = {
-  currentDate: getTodayString(),
-  activeTab: 'timeline',
-  categories: loadCategories(),
-  records: loadRecords(),
-  reflections: loadReflections(),
-  selectedCategory: 'phone',
-  editingRecordId: null,
-  charts: {
-    review: null,
-    trend: null
-  }
-};
-
-function getTodayString() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 // Storage Adapter Architecture (Local-First + Future Cloud Sync Adapter)
 const StorageAdapter = {
   mode: 'local', // 'local' | 'cloud' (ready for future multi-device sync)
@@ -58,6 +35,14 @@ const StorageAdapter = {
   }
 };
 
+function getTodayString() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function loadCategories() {
   return StorageAdapter.load('categories', DEFAULT_CATEGORIES);
 }
@@ -77,6 +62,21 @@ function loadReflections() {
 function saveReflections() {
   StorageAdapter.save('reflections', state.reflections);
 }
+
+// App State
+let state = {
+  currentDate: getTodayString(),
+  activeTab: 'timeline',
+  categories: loadCategories(),
+  records: loadRecords(),
+  reflections: loadReflections(),
+  selectedCategory: 'phone',
+  editingRecordId: null,
+  charts: {
+    review: null,
+    trend: null
+  }
+};
 
 // Convert "HH:MM" to total minutes from 00:00
 function timeToMinutes(timeStr) {
