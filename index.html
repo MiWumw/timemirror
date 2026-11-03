@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>时镜 TimeMirror - 24h时间图谱与自我反思</title>
+  <meta name="theme-color" content="#4F46E5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js for smooth interactive data visualisations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- QRCode.js for mobile pairing -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+
+  <div class="app-shell">
+
+    <!-- Top Sticky Header -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="brand-title">
+          <span>🪞 时镜</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.0.0 · 体验版</span>
+        </div>
+        <div class="date-navigator">
+          <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
+          <span id="dateDisplay" class="date-display">11月3日 周二 (今天)</span>
+          <button id="nextDateBtn" class="date-nav-btn" title="后一天">▶</button>
+          <button id="todayBtn" class="date-nav-btn" title="回到今天" style="font-size: 0.72rem; font-weight: 700; color: var(--primary);">今</button>
+        </div>
+      </div>
+
+      <!-- 24-Hour Continuous Spectrum Bar -->
+      <div class="spectrum-wrapper">
+        <div class="spectrum-label">
+          <span>24小时光阴流转</span>
+          <span id="spectrumPercent">全天图谱</span>
+        </div>
+        <div id="spectrumBar" class="spectrum-bar">
+          <!-- Dynamically filled segments -->
+        </div>
+        <div class="spectrum-scale">
+          <span>00:00</span>
+          <span>06:00</span>
+          <span>12:00</span>
+          <span>18:00</span>
+          <span>24:00</span>
+        </div>
+      </div>
+
+      <!-- Quick Summary Metric Chips -->
+      <div class="quick-stats">
+        <div class="stat-chip">
+          <div class="stat-chip-label">🕒 已记录</div>
+          <div id="loggedHours" class="stat-chip-val">0.0h</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">📱 摸鱼/刷手机</div>
+          <div id="wasterHours" class="stat-chip-val alert">0.0h</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">✨ 深度专注</div>
+          <div id="productiveHours" class="stat-chip-val success">0.0h</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- TAB 1: 时间流 (Timeline) -->
+    <main id="tab-timeline" class="tab-pane tab-content">
+      <!-- Desktop Mobile Sync Banner -->
+      <div class="desktop-qr-card" id="desktopQrCard">
+        <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 4px;">📲 手机扫码或浏览器打开体验</div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">用同一局域网/Wi-Fi下的手机浏览器打开体验最佳，可点击“添加到主屏幕”：</div>
+        <div id="qrCodeContainer" style="display: flex; justify-content: center; margin-bottom: 8px;"></div>
+        <div id="mobileUrlDisplay" style="font-size: 0.82rem; font-weight: 600; color: var(--primary); word-break: break-all;"></div>
+      </div>
+
+      <div id="emptyNotice" style="display: none; text-align: center; padding: 24px 0 10px; color: var(--text-muted);">
+        <div style="font-size: 2rem; margin-bottom: 6px;">🌱</div>
+        <div style="font-size: 0.9rem; font-weight: 600;">今天还没有记录任何时间块</div>
+        <div style="font-size: 0.75rem; color: var(--text-light); margin-top: 4px;">点击下方的 “➕” 按钮或时间空隙即可开始记录！</div>
+      </div>
+
+      <div id="timelineStream" class="timeline-stream">
+        <!-- Dynamically injected timeline items & gap items -->
+      </div>
+    </main>
+
+    <!-- TAB 2: 每日复盘 (Daily Review) -->
+    <section id="tab-review" class="tab-pane tab-content" style="display: none;">
+      <!-- Time Black Hole Alert -->
+      <div id="blackHoleAlert" class="black-hole-alert" style="display: none;">
+        <span class="alert-icon">⚠️</span>
+        <div id="blackHoleSummary" class="alert-text"></div>
+      </div>
+
+      <!-- Doughnut Chart Card -->
+      <div class="review-card">
+        <div class="review-card-title">
+          <span>📊 今日时间分布比例</span>
+        </div>
+        <div style="height: 220px; position: relative;">
+          <canvas id="reviewPieChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Reflection Input Card -->
+      <div class="review-card">
+        <div class="review-card-title">
+          <span>📝 睡前复盘与自我对话</span>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 6px;">
+          <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">为今天的时间掌控感打个分：</span>
+        </div>
+        <div class="star-rating-row">
+          <button class="star-btn" data-score="1">★</button>
+          <button class="star-btn" data-score="2">★</button>
+          <button class="star-btn" data-score="3">★</button>
+          <button class="star-btn" data-score="4">★</button>
+          <button class="star-btn" data-score="5">★</button>
+        </div>
+
+        <div class="reflection-question">
+          <label>🌟 1. 今天最值得肯定的专注投入：</label>
+          <textarea id="reflectPraise" placeholder="例如：上午集中精神把最难的任务搞定了，没被打扰..."></textarea>
+        </div>
+
+        <div class="reflection-question">
+          <label>🕵️ 2. 今天哪些时间在不知不觉中被偷走了？</label>
+          <textarea id="reflectWasted" placeholder="例如：早上在床上刷了半小时手机，起得太迟导致上午有点慌乱..."></textarea>
+        </div>
+
+        <div class="reflection-question">
+          <label>🎯 3. 明天的一个微小改变策略：</label>
+          <textarea id="reflectAction" placeholder="例如：今晚把手机放客厅充电，起床第一件事先倒一杯温水喝..."></textarea>
+        </div>
+
+        <button id="btnSaveReflection" class="btn-primary" style="margin-top: 8px;">
+          💾 保存今日复盘心得
+        </button>
+      </div>
+    </section>
+
+    <!-- TAB 3: 趋势洞察 (Trends) -->
+    <section id="tab-trends" class="tab-pane tab-content" style="display: none;">
+      <div class="review-card">
+        <div class="review-card-title">
+          <span>📈 近7天【刷手机摸鱼】vs【专注投入】</span>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px;">
+          红色代表被动消耗时间，蓝色代表高价值产出。随着自我意识提升，红柱会逐渐缩短。
+        </div>
+        <div style="height: 240px; position: relative;">
+          <canvas id="trendBarChart"></canvas>
+        </div>
+      </div>
+
+      <div class="review-card">
+        <div class="review-card-title">
+          <span>💡 时间觉知法则</span>
+        </div>
+        <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;">
+          <p style="margin-bottom: 8px;"><b>1. 不加评判地记录：</b> 早上刷了30分钟手机没关系，关键是诚实地记录下来。记录本身就是觉知的开始。</p>
+          <p style="margin-bottom: 8px;"><b>2. 降低启动阻力：</b> 醒来把手机放在手够不着的地方，用实体闹钟或把水杯放在床头。</p>
+          <p><b>3. 柳比歇夫统计法：</b> 经过2~3周的连续记录，你的潜意识会自动提醒你“当下做的事情是否值得”。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: 设置与管理 (Settings) -->
+    <section id="tab-settings" class="tab-pane tab-content" style="display: none;">
+      <div class="review-card">
+        <div class="review-card-title">
+          <span>📦 版本与迭代中心</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #F1F5F9; padding: 10px 12px; border-radius: var(--radius-md);">
+          <div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.0.0 (首发体验版)</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261103 · 本地优先架构</div>
+          </div>
+          <button id="btnOpenChangelog" class="gap-add-btn" style="padding: 6px 14px;">
+            查看更新日志
+          </button>
+        </div>
+        <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
+          每当功能升级或体验优化，我们都会在此记录详细的迭代日志。
+        </div>
+      </div>
+
+      <div class="review-card">
+        <div class="review-card-title">
+          <span>🌐 多端生态与云端同步预留</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
+          <p style="margin-bottom: 6px;"><b>📱 跨平台准备：</b> 代码底层采用 Web 标准模块化规范，已预留针对 <b>Android APK、iOS、iPadOS、Windows</b> 的打包容器层（Capacitor / Tauri），可随时打包原生应用。</p>
+          <p style="margin-bottom: 6px;"><b>☁️ 云端同步接口：</b> 内部已抽象 <code>StorageAdapter</code> 数据适配层。现阶段为纯离线保护隐私，未来只需开启云适配器，即可平滑支持多设备端到端加密同步，无需重构现有记录。</p>
+          <p><b>🧩 应用矩阵融合：</b> 项目独立位于 <code>d:\fs\timemirror</code>，为日后新增打卡、笔记、知识库等多款 APP 并形成“个人数字聚合中心”保留了标准扩展空间。</p>
+        </div>
+      </div>
+
+      <div class="review-card">
+        <div class="review-card-title">
+          <span>🛠️ 体验与数据管理</span>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;">
+          本应用采用 <b>本地优先（Local-First）</b> 架构，全部数据保存在当前设备的本地存储中，离线可用，绝不上传任何云端服务器，全面守护你的个人作息隐私。
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <button id="btnLoadSample" class="btn-primary" style="background: #4B5563;">
+            ✨ 一键载入全天典型示例数据
+          </button>
+          <button id="btnExportData" class="btn-primary" style="background: #0284C7;">
+            📥 备份/导出我的时间数据 (JSON)
+          </button>
+          <button id="btnImportData" class="btn-primary" style="background: #0D9488;">
+            📤 恢复/导入备份数据
+          </button>
+          <input type="file" id="fileImport" accept=".json" style="display: none;">
+          <button id="btnClearData" class="btn-primary" style="background: #DC2626;">
+            🗑️ 清空所有记录
+          </button>
+        </div>
+      </div>
+
+      <div class="review-card">
+        <div class="review-card-title">
+          <span>📱 如何在手机上安装使用</span>
+        </div>
+        <ol style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; padding-left: 20px;">
+          <li>确保手机与电脑在同一 Wi-Fi 或局域网。</li>
+          <li>在手机自带浏览器（如 Chrome、Edge、华为浏览器、小米浏览器）中打开本站网址。</li>
+          <li>点击浏览器菜单（右上角三个点或底部分享按钮）。</li>
+          <li>选择 <b>“添加到主屏幕”</b> 或 <b>“安装应用”</b>。</li>
+          <li>手机桌面上就会出现《时镜》App 图标，打开后全屏无地址栏，完全等同原生 App！</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- Floating Action Button (Record) -->
+    <button id="fabAddBtn" class="fab-add" title="快速记录时间块">
+      <span>+</span>
+    </button>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-tab="timeline">
+        <span class="nav-icon">🕒</span>
+        <span>时间流</span>
+      </button>
+      <button class="nav-item" data-tab="review">
+        <span class="nav-icon">📊</span>
+        <span>每日复盘</span>
+      </button>
+      <button class="nav-item" data-tab="trends">
+        <span class="nav-icon">📈</span>
+        <span>趋势洞察</span>
+      </button>
+      <button class="nav-item" data-tab="settings">
+        <span class="nav-icon">⚙️</span>
+        <span>设置</span>
+      </button>
+    </nav>
+
+    <!-- Slide-up Recording Drawer Modal -->
+    <div id="recordModal" class="modal-overlay">
+      <div class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span id="modalTitle" class="sheet-title">记录新时间块</span>
+          <button id="modalCloseBtn" class="sheet-close-btn">✕</button>
+        </div>
+
+        <form id="recordForm">
+          <!-- Category Selector -->
+          <div class="form-section-title">选择活动类型</div>
+          <div id="categoryChips" class="category-chips-grid">
+            <!-- Dynamically injected category chips -->
+          </div>
+
+          <!-- Time Picker -->
+          <div class="form-section-title">起止时间段</div>
+          <div class="time-inputs-row">
+            <div class="time-input-group">
+              <label>开始时间</label>
+              <input type="time" id="inputStartTime" class="time-input" required>
+            </div>
+            <span class="time-to-separator">➜</span>
+            <div class="time-input-group">
+              <label>结束时间</label>
+              <input type="time" id="inputEndTime" class="time-input" required>
+            </div>
+          </div>
+
+          <!-- Quick Duration Helper Chips -->
+          <div class="duration-quick-chips">
+            <span style="font-size: 0.72rem; color: var(--text-muted); align-self: center;">一键时长：</span>
+            <button type="button" class="quick-dur-btn" data-mins="15">+15分钟</button>
+            <button type="button" class="quick-dur-btn" data-mins="30">+30分钟</button>
+            <button type="button" class="quick-dur-btn" data-mins="45">+45分钟</button>
+            <button type="button" class="quick-dur-btn" data-mins="60">+1小时</button>
+            <button type="button" class="quick-dur-btn" data-mins="90">+1.5小时</button>
+          </div>
+
+          <!-- Note / Details -->
+          <div class="form-section-title">具体情况 / 备注（选填）</div>
+          <input type="text" id="inputNote" class="text-input" placeholder="例如：醒来没立刻起，在床上刷手机看新闻">
+
+          <!-- Submit -->
+          <button type="submit" class="btn-primary">
+            ✓ 确定保存时间块
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Changelog & Versions Drawer Modal -->
+    <div id="changelogModal" class="modal-overlay">
+      <div class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">📦 版本迭代与更新日志</span>
+          <button id="changelogCloseBtn" class="sheet-close-btn">✕</button>
+        </div>
+
+        <div class="changelog-timeline">
+          <!-- v1.0.0 Current -->
+          <div class="changelog-card current">
+            <div class="changelog-header">
+              <div class="changelog-version">
+                <span>v1.0.0</span>
+                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中</span>
+              </div>
+              <span class="changelog-date">2026-11-03</span>
+            </div>
+            <ul class="changelog-list">
+              <li><b>✨ 24小时时间图谱</b>：顶部流光色条 + 00:00~24:00 时序时间流全景展示。</li>
+              <li><b>⚡ 零摩擦极速录入</b>：自动识别未填空白时隙并提供一键补录，支持 +15m / +30m / +1h 快捷设置。</li>
+              <li><b>📱 时间黑洞警示</b>：专门追踪醒后赖床刷手机、无效摸鱼消耗，自动计算占比并给出提醒。</li>
+              <li><b>📝 睡前复盘卡片</b>：5星掌控感评分 + 3道启发性自省问答，沉淀个人心得。</li>
+              <li><b>📊 多维趋势图</b>：全天分类分布环形饼图与近7天摸鱼vs专注双色柱状图。</li>
+              <li><b>🔒 本地优先架构</b>：全离线运行，隐私完全属于自己，支持数据一键 JSON 备份与恢复。</li>
+            </ul>
+          </div>
+
+          <!-- Future Plan v1.1.0 -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <div class="changelog-version">
+                <span>v1.1.0</span>
+                <span class="future-badge">规划中</span>
+              </div>
+              <span class="changelog-date">近期迭代</span>
+            </div>
+            <ul class="changelog-list">
+              <li><b>🎨 自定义分类与调色板</b>：支持自由新增、重命名分类并自选代表颜色。</li>
+              <li><b>🖼️ 复盘战报长图分享</b>：支持一键将今日时间图谱和反思心得渲染为精致长图。</li>
+              <li><b>📱 平板与横屏排版适配</b>：优化 iPad、折叠屏双栏分屏视图体验。</li>
+            </ul>
+          </div>
+
+          <!-- Future Roadmap v2.0.0 -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <div class="changelog-version">
+                <span>v2.0.0</span>
+                <span class="future-badge">长远路线</span>
+              </div>
+              <span class="changelog-date">未来演进</span>
+            </div>
+            <ul class="changelog-list">
+              <li><b>🍎 多平台原生客户端</b>：支持封装为 iOS / iPadOS 原生 App 以及 Windows 桌面客户端。</li>
+              <li><b>☁️ 可选多设备加密同步</b>：在保留本地优先的前提下，支持私有云/WebDAV多端无感同步。</li>
+              <li><b>🧩 矩阵生态融合</b>：支持与未来新增的习惯管理、记事随笔等新 APP 互联聚合。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // Generate Mobile QR Code on Desktop
+    window.addEventListener('DOMContentLoaded', () => {
+      const currentHost = window.location.host;
+      const protocol = window.location.protocol;
+      const url = `${protocol}//${currentHost}`;
+      const urlDisplay = document.getElementById('mobileUrlDisplay');
+      if (urlDisplay) urlDisplay.textContent = url;
+
+      const qrContainer = document.getElementById('qrCodeContainer');
+      if (qrContainer && typeof QRCode !== 'undefined') {
+        new QRCode(qrContainer, {
+          text: url,
+          width: 140,
+          height: 140,
+          colorDark: "#0F172A",
+          colorLight: "#FFFFFF",
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      }
+    });
+  </script>
+</body>
+</html>
