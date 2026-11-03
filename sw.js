@@ -1,11 +1,14 @@
-// Service Worker for TimeMirror PWA
-const CACHE_NAME = 'timemirror-v1';
+// Service Worker for TimeMirror PWA on GitHub Pages
+const CACHE_NAME = 'timemirror-v3';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
-  './manifest.json'
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './chart.umd.min.js'
 ];
 
 self.addEventListener('install', (event) => {

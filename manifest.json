@@ -2,32 +2,35 @@
   "name": "时镜 TimeMirror - 24h时间图谱",
   "short_name": "时镜",
   "description": "24小时时间图谱与每日反思自我优化工具",
-  "start_url": "./index.html",
+  "lang": "zh-CN",
+  "id": "https://miwumw.github.io/timemirror/",
+  "start_url": "https://miwumw.github.io/timemirror/index.html",
+  "scope": "https://miwumw.github.io/timemirror/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#F8FAFC",
   "theme_color": "#4F46E5",
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "https://miwumw.github.io/timemirror/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-192.png",
+      "src": "https://miwumw.github.io/timemirror/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "https://miwumw.github.io/timemirror/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icon-512.png",
+      "src": "https://miwumw.github.io/timemirror/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
