@@ -219,29 +219,19 @@ def on_exit(icon, item):
     icon.stop()
     if httpd_server:
         threading.Thread(target=httpd_server.shutdown).start()
-    sys.exit(0)
-
-def start_http_server():
-    global httpd_server
-    server_address = ("0.0.0.0", PORT)
-    httpd_server = HTTPServer(server_address, SyncHandler)
-    httpd_server.serve_forever()
+    os._exit(0)
 
 def main():
-    # 1. 启动轻量 HTTP 监听线程
-    server_thread = threading.Thread(target=start_http_server, daemon=True)
-    server_thread.start()
-
+    global httpd_server
     lan_ip = get_lan_ip()
 
-    # 2. 加载图标 (使用时镜自己的 192x192 图标)
+    # 1. 准备托盘图标 (使用时镜自己的 192x192 图标)
     if os.path.exists(ICON_PATH):
         image = Image.open(ICON_PATH)
     else:
-        # 兜底生成纯色方块图标
         image = Image.new("RGB", (64, 64), color=(79, 70, 229))
 
-    # 3. 创建托盘菜单
+    # 2. 创建托盘菜单
     menu = Menu(
         item(f"🪞 时镜同步服务 (运行中: {lan_ip}:{PORT})", lambda icon, item: None, enabled=False),
         Menu.SEPARATOR,
@@ -252,14 +242,24 @@ def main():
         item("❌ 退出并关闭服务 (释放内存)", on_exit)
     )
 
-    # 4. 运行系统托盘
+    # 3. 启动系统托盘 (后台独立消息泵线程)
     icon = pystray.Icon(
         "TimeMirrorSync",
         image,
         f"《时镜》Obsidian 直通服务 (地址: {lan_ip}:{PORT})",
         menu
     )
-    icon.run()
+    icon.run_detached()
+
+    # 4. 主线程启动 HTTP 服务监听并阻塞运行
+    server_address = ("0.0.0.0", PORT)
+    httpd_server = HTTPServer(server_address, SyncHandler)
+    httpd_server.serve_forever()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        with open(r"D:\fzl\fs\timemirror\tray_debug.log", "w", encoding="utf-8") as f:
+            traceback.print_exc(file=f)
