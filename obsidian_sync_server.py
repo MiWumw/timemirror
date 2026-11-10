@@ -112,7 +112,7 @@ class SyncHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        if self.path.startswith("/status") or self.path == "/":
+        if self.path.startswith("/status"):
             lan_ip = get_lan_ip()
             today_str = datetime.now().strftime("%Y-%m-%d")
             resp = {
@@ -133,8 +133,37 @@ class SyncHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
         else:
-            self.send_response(404)
-            self.end_headers()
+            # 静态文件服务 (让手机可直接访问局域网纯内网版时镜，彻底绕过浏览器的 HTTPS Mixed Content 限制)
+            clean_path = self.path.split("?")[0].lstrip("/")
+            if not clean_path or clean_path == "/":
+                clean_path = "index.html"
+            file_path = os.path.join(BASE_DIR, clean_path)
+
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                ext = os.path.splitext(file_path)[1].lower()
+                mime_types = {
+                    ".html": "text/html; charset=utf-8",
+                    ".js": "application/javascript; charset=utf-8",
+                    ".css": "text/css; charset=utf-8",
+                    ".json": "application/json; charset=utf-8",
+                    ".png": "image/png",
+                    ".jpg": "image/jpeg",
+                    ".svg": "image/svg+xml",
+                    ".ico": "image/x-icon"
+                }
+                ctype = mime_types.get(ext, "application/octet-stream")
+                with open(file_path, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self._send_cors()
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            else:
+                self.send_response(404)
+                self._send_cors()
+                self.end_headers()
 
     def do_POST(self):
         if self.path.startswith("/sync"):
