@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.0.0 · 体验版</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.1.0 · 知行合流版</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -77,6 +77,28 @@
         <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 10px;">用同一局域网/Wi-Fi下的手机浏览器打开体验最佳，可点击“添加到主屏幕”：</div>
         <div id="qrCodeContainer" style="display: flex; justify-content: center; margin-bottom: 8px;"></div>
         <div id="mobileUrlDisplay" style="font-size: 0.82rem; font-weight: 600; color: var(--primary); word-break: break-all;"></div>
+      </div>
+
+      <!-- Obsidian Sync & Quick Copy Bar -->
+      <div class="obsidian-sync-card">
+        <div class="obsidian-sync-header">
+          <div class="obsidian-title">
+            <span class="obsidian-logo">🌿</span>
+            <span class="obsidian-name">Obsidian 暮夜对账</span>
+            <span id="syncStatusBadge" class="sync-badge">双保险联动</span>
+          </div>
+          <span class="obsidian-sub">知行日志无感直接入账</span>
+        </div>
+        <div class="obsidian-btn-group">
+          <button id="btnCopyObsidian" class="obsidian-action-btn copy" title="一键复制为 Obsidian 暮夜对账 Markdown 格式">
+            <span>📋</span>
+            <span>一键复制对账</span>
+          </button>
+          <button id="btnSyncObsidian" class="obsidian-action-btn sync" title="通过局域网直接写入电脑 Obsidian 每日知行日志">
+            <span>🚀</span>
+            <span>局域网直通写入</span>
+          </button>
+        </div>
       </div>
 
       <div id="emptyNotice" style="display: none; text-align: center; padding: 24px 0 10px; color: var(--text-muted);">
@@ -174,14 +196,42 @@
 
     <!-- TAB 4: 设置与管理 (Settings) -->
     <section id="tab-settings" class="tab-pane tab-content" style="display: none;">
+      <!-- Obsidian Integration Card -->
+      <div class="review-card" style="border: 1.5px solid #10B981;">
+        <div class="review-card-title">
+          <span>🌿 Obsidian 局域网直通同步设置</span>
+          <span style="font-size: 0.72rem; color: #10B981; font-weight: 700; background: #D1FAE5; padding: 2px 8px; border-radius: var(--radius-full);">极轻量·0%CPU</span>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px;">
+          在电脑后台运行 <code>obsidian_sync_server.py</code> 后，手机与电脑在同一 Wi-Fi 下即可实现秒级无感写入当天的 <b>【### ⚡ 暮夜对账】</b>。
+        </p>
+
+        <div style="margin-bottom: 10px;">
+          <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">电脑局域网同步地址：</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="obsidianServerUrl" class="text-input" style="font-family: monospace; font-size: 0.85rem;" placeholder="http://192.168.31.51:28888" value="http://192.168.31.51:28888">
+            <button type="button" id="btnTestObsidianServer" class="gap-add-btn" style="padding: 0 14px; white-space: nowrap;">
+              测试连通
+            </button>
+          </div>
+          <div id="obsidianServerMsg" style="font-size: 0.75rem; margin-top: 6px; min-height: 18px;"></div>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button type="button" id="btnSyncObsidianInSettings" class="btn-primary" style="background: #10B981; flex: 1;">
+            🚀 立即同步今日流水到 Obsidian
+          </button>
+        </div>
+      </div>
+
       <div class="review-card">
         <div class="review-card-title">
           <span>📦 版本与迭代中心</span>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #F1F5F9; padding: 10px 12px; border-radius: var(--radius-md);">
           <div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.0.0 (首发体验版)</div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261103 · 本地优先架构</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.1.0 (知行合流版)</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261110 · 卡片点按编辑 + Obsidian联动 + 分类自定义</div>
           </div>
           <button id="btnOpenChangelog" class="gap-add-btn" style="padding: 6px 14px;">
             查看更新日志
@@ -278,7 +328,10 @@
 
         <form id="recordForm">
           <!-- Category Selector -->
-          <div class="form-section-title">选择活动类型</div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div class="form-section-title" style="margin-bottom: 0;">选择活动类型</div>
+            <button type="button" id="btnOpenCategoryManager" class="mini-text-btn">⚙️ 自定义/管理分类</button>
+          </div>
           <div id="categoryChips" class="category-chips-grid">
             <!-- Dynamically injected category chips -->
           </div>
@@ -311,11 +364,72 @@
           <div class="form-section-title">具体情况 / 备注（选填）</div>
           <input type="text" id="inputNote" class="text-input" placeholder="例如：醒来没立刻起，在床上刷手机看新闻">
 
-          <!-- Submit -->
-          <button type="submit" class="btn-primary">
-            ✓ 确定保存时间块
-          </button>
+          <!-- Action Buttons -->
+          <div class="modal-form-actions" style="display: flex; gap: 10px; margin-top: 14px;">
+            <button type="button" id="btnDeleteRecordInModal" class="btn-danger-outline" style="display: none; padding: 12px 16px; border: 1.5px solid #EF4444; color: #EF4444; background: #FEF2F2; border-radius: var(--radius-md); font-weight: 700; cursor: pointer; font-size: 0.9rem;">
+              🗑️ 删除此记录
+            </button>
+            <button type="submit" id="btnSubmitRecord" class="btn-primary" style="flex: 2; margin-top: 0;">
+              ✓ 确定保存时间块
+            </button>
+          </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Category Manager Drawer Modal -->
+    <div id="categoryModal" class="modal-overlay">
+      <div class="bottom-sheet" style="max-height: 85vh;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">⚙️ 活动类型管理与自定义</span>
+          <button id="categoryModalCloseBtn" class="sheet-close-btn">✕</button>
+        </div>
+
+        <div class="category-manager-body" style="padding-bottom: 24px;">
+          <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+            在此自由修改分类名称、换图标与颜色，或新增你的专属活动（如中医研读、功法打卡、起居饮食）。修改后自动保存并生效。
+          </div>
+
+          <!-- Existing Categories List -->
+          <div class="category-edit-list" id="categoryEditList">
+            <!-- Dynamically injected items with edit/delete -->
+          </div>
+
+          <!-- Add New Category Box -->
+          <div class="add-category-card" style="margin-top: 14px; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: var(--radius-md); padding: 12px;">
+            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">
+              ➕ 新增活动类型
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="newCatIcon" class="text-input" style="width: 56px; text-align: center; font-size: 1.25rem; padding: 6px;" placeholder="图标" value="✨" maxlength="2">
+              <input type="text" id="newCatName" class="text-input" style="flex: 1;" placeholder="分类名称 (如：黄帝内经研读)">
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 0.78rem; color: var(--text-muted);">颜色:</span>
+                <input type="color" id="newCatColor" value="#3B82F6" style="border: none; width: 34px; height: 30px; border-radius: 6px; cursor: pointer; background: none;">
+              </div>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <label style="font-size: 0.76rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                  <input type="checkbox" id="newCatIsProductive"> 高价值专注
+                </label>
+                <label style="font-size: 0.76rem; color: #EF4444; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+                  <input type="checkbox" id="newCatIsWaster"> 摸鱼消耗
+                </label>
+              </div>
+            </div>
+            <button type="button" id="btnAddCategorySubmit" class="btn-primary" style="margin-top: 10px; padding: 8px; font-size: 0.85rem;">
+              + 确认添加分类
+            </button>
+          </div>
+
+          <div style="text-align: center; margin-top: 16px;">
+            <button type="button" id="btnResetDefaultCategories" style="background: none; border: none; font-size: 0.75rem; color: var(--text-light); text-decoration: underline; cursor: pointer;">
+              ↺ 恢复系统初始默认分类
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -329,12 +443,30 @@
         </div>
 
         <div class="changelog-timeline">
-          <!-- v1.0.0 Current -->
+          <!-- v1.1.0 Current -->
           <div class="changelog-card current">
             <div class="changelog-header">
               <div class="changelog-version">
+                <span>v1.1.0</span>
+                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 知行合流版</span>
+              </div>
+              <span class="changelog-date">2026-11-10</span>
+            </div>
+            <ul class="changelog-list">
+              <li><b>🌿 Obsidian 暮夜对账联动</b>：增加【一键复制对账】与【局域网直通写入】双保险，告别繁琐 AI 二次转录，手机打卡直接丝滑入账。</li>
+              <li><b>👆 卡片整块点击编辑</b>：不再需要小心翼翼瞄准小小的“编辑”两字，轻按整个时间卡片即可直接编辑修改。</li>
+              <li><b>⚙️ 活动分类自由自定义</b>：支持就地重命名分类、随心修改 Emoji 与颜色，支持新增自定义分类与删除不常用分类。</li>
+              <li><b>🗑️ 弹窗内大号删除键</b>：在编辑弹窗内提供醒目删除按钮，防止移动端误触。</li>
+              <li><b>📡 超轻量局域网服务</b>：配套 <code>obsidian_sync_server.py</code>，电脑开销 0% CPU、仅 8MB 内存，毫秒级响应。</li>
+            </ul>
+          </div>
+
+          <!-- v1.0.0 Previous -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <div class="changelog-version">
                 <span>v1.0.0</span>
-                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中</span>
+                <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
               </div>
               <span class="changelog-date">2026-11-03</span>
             </div>

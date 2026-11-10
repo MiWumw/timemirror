@@ -236,6 +236,39 @@ function initEventListeners() {
   // Save reflection
   btnSaveReflection.addEventListener('click', handleSaveReflection);
 
+  // Obsidian Sync & Copy Buttons
+  const btnCopyObsidian = document.getElementById('btnCopyObsidian');
+  if (btnCopyObsidian) btnCopyObsidian.addEventListener('click', copyObsidianNightlyLog);
+
+  const btnSyncObsidian = document.getElementById('btnSyncObsidian');
+  if (btnSyncObsidian) btnSyncObsidian.addEventListener('click', syncToObsidianLAN);
+
+  const btnSyncObsidianInSettings = document.getElementById('btnSyncObsidianInSettings');
+  if (btnSyncObsidianInSettings) btnSyncObsidianInSettings.addEventListener('click', syncToObsidianLAN);
+
+  const btnTestObsidianServer = document.getElementById('btnTestObsidianServer');
+  if (btnTestObsidianServer) btnTestObsidianServer.addEventListener('click', testObsidianConnection);
+
+  // Category Manager Modal Listeners
+  const btnOpenCategoryManager = document.getElementById('btnOpenCategoryManager');
+  if (btnOpenCategoryManager) btnOpenCategoryManager.addEventListener('click', openCategoryModal);
+
+  const categoryModalCloseBtn = document.getElementById('categoryModalCloseBtn');
+  if (categoryModalCloseBtn) categoryModalCloseBtn.addEventListener('click', closeCategoryModal);
+
+  const categoryModal = document.getElementById('categoryModal');
+  if (categoryModal) {
+    categoryModal.addEventListener('click', (e) => {
+      if (e.target === categoryModal) closeCategoryModal();
+    });
+  }
+
+  const btnAddCategorySubmit = document.getElementById('btnAddCategorySubmit');
+  if (btnAddCategorySubmit) btnAddCategorySubmit.addEventListener('click', handleAddNewCategory);
+
+  const btnResetDefaultCategories = document.getElementById('btnResetDefaultCategories');
+  if (btnResetDefaultCategories) btnResetDefaultCategories.addEventListener('click', handleResetDefaultCategories);
+
   // Settings actions
   const btnLoadSample = document.getElementById('btnLoadSample');
   if (btnLoadSample) btnLoadSample.addEventListener('click', () => {
@@ -371,6 +404,7 @@ function createRecordElement(rec) {
 
   const card = document.createElement('div');
   card.className = 'timeline-item';
+  card.title = '点击直接编辑此时段记录';
   card.innerHTML = `
     <div class="time-badge-col">
       <div class="time-range">${rec.start} - ${rec.end}</div>
@@ -381,26 +415,35 @@ function createRecordElement(rec) {
       <div class="timeline-item-title-row">
         <span class="timeline-item-title">${cat.icon} ${cat.name}</span>
         <span class="timeline-item-category" style="background: ${cat.color}18; color: ${cat.color};">
-          ${cat.isWaster ? '⚠️ 无效消耗' : (cat.isProductive ? '✨ 高效专注' : '日常')}
+          ${cat.isWaster ? '⚠️ 摸鱼消耗' : (cat.isProductive ? '✨ 高效专注' : '日常')}
         </span>
       </div>
       ${rec.note ? `<div class="timeline-item-note">${escapeHtml(rec.note)}</div>` : ''}
       <div class="timeline-item-actions">
-        <button class="item-action-btn edit-btn" title="编辑">✏️ 编辑</button>
-        <button class="item-action-btn del-btn del" title="删除">🗑️ 删除</button>
+        <span style="font-size: 0.72rem; color: var(--text-light); margin-right: auto; opacity: 0.85;">轻按编辑 ✏️</span>
+        <button class="item-action-btn del-btn del" title="删除此记录">🗑️</button>
       </div>
     </div>
   `;
 
-  card.querySelector('.edit-btn').addEventListener('click', () => {
-    openRecordModal(rec);
-  });
-
-  card.querySelector('.del-btn').addEventListener('click', () => {
-    if (confirm(`确定删除时段 ${rec.start} - ${rec.end} 的记录吗？`)) {
-      deleteRecord(rec.id);
+  // 点击整个卡片任何区域（除了垃圾桶）直接触发编辑
+  card.addEventListener('click', (e) => {
+    if (!e.target.closest('.del-btn')) {
+      openRecordModal(rec);
     }
   });
+
+  // 单独点击垃圾桶极速删除
+  const delBtn = card.querySelector('.del-btn');
+  if (delBtn) {
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm(`确定删除时段 ${rec.start} - ${rec.end} 的记录吗？`)) {
+        deleteRecord(rec.id);
+        showToast('已删除记录');
+      }
+    });
+  }
 
   return card;
 }
@@ -494,9 +537,23 @@ function updateQuickStats() {
 
 // Modal handling
 function openRecordModal(existingRecord = null, defaultStart = null, defaultEnd = null) {
+  const btnDeleteInModal = document.getElementById('btnDeleteRecordInModal');
+  const btnSubmitRecord = document.getElementById('btnSubmitRecord');
+
   if (existingRecord) {
     state.editingRecordId = existingRecord.id;
-    modalTitle.textContent = '编辑时间记录';
+    modalTitle.textContent = `修改记录 (${existingRecord.start} - ${existingRecord.end})`;
+    if (btnSubmitRecord) btnSubmitRecord.textContent = '✓ 保存修改';
+    if (btnDeleteInModal) {
+      btnDeleteInModal.style.display = 'block';
+      btnDeleteInModal.onclick = () => {
+        if (confirm(`确定删除 ${existingRecord.start} - ${existingRecord.end} 的记录吗？`)) {
+          deleteRecord(existingRecord.id);
+          closeRecordModal();
+          showToast('已删除该记录');
+        }
+      };
+    }
     state.selectedCategory = existingRecord.category;
     inputStartTime.value = existingRecord.start;
     inputEndTime.value = existingRecord.end;
@@ -504,7 +561,9 @@ function openRecordModal(existingRecord = null, defaultStart = null, defaultEnd 
   } else {
     state.editingRecordId = null;
     modalTitle.textContent = '记录新时间块';
-    state.selectedCategory = 'phone'; // Default highlight phone/routine
+    if (btnSubmitRecord) btnSubmitRecord.textContent = '✓ 确定保存时间块';
+    if (btnDeleteInModal) btnDeleteInModal.style.display = 'none';
+    state.selectedCategory = state.categories[0] ? state.categories[0].id : 'phone';
 
     if (defaultStart && defaultEnd) {
       inputStartTime.value = defaultStart;
@@ -881,3 +940,283 @@ function registerServiceWorker() {
 function escapeHtml(str) {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+/* ========================================================
+   v1.1.0: Toast Helper, Obsidian Sync & Category Management
+   ======================================================== */
+
+// 1. Toast Notification
+function showToast(msg) {
+  let toast = document.getElementById('toastNotice');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'toastNotice';
+    toast.className = 'toast-notice';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2400);
+}
+
+// 2. Obsidian Nightly Log Formatter
+function generateObsidianNightlyLog(dateStr) {
+  const records = (state.records[dateStr] || []).slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+  if (records.length === 0) {
+    return '今日暂无时间打卡记录。';
+  }
+
+  const lines = records.map(rec => {
+    const cat = state.categories.find(c => c.id === rec.category) || { name: '日常' };
+    const note = rec.note ? rec.note.trim() : '';
+    if (note) {
+      return `- **${rec.start} - ${rec.end}**：【${cat.name}】${note}`;
+    } else {
+      return `- **${rec.start} - ${rec.end}**：【${cat.name}】`;
+    }
+  });
+
+  return lines.join('\n');
+}
+
+// 3. Obsidian 一键复制
+async function copyObsidianNightlyLog() {
+  const text = generateObsidianNightlyLog(state.currentDate);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    showToast('📋 已复制暮夜对账！直接粘贴进 Obsidian');
+  } catch (err) {
+    console.error('Copy error:', err);
+    prompt('请长按复制今日对账文本：', text);
+  }
+}
+
+// 4. Obsidian 局域网极速直通同步
+async function syncToObsidianLAN() {
+  const serverInput = document.getElementById('obsidianServerUrl');
+  let serverUrl = (serverInput ? serverInput.value.trim() : '') || localStorage.getItem('tm_obsidian_server') || 'http://192.168.31.51:28888';
+  serverUrl = serverUrl.replace(/\/+$/, '');
+  localStorage.setItem('tm_obsidian_server', serverUrl);
+
+  const records = (state.records[state.currentDate] || []).slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+  const formattedText = generateObsidianNightlyLog(state.currentDate);
+
+  const statusBadge = document.getElementById('syncStatusBadge');
+  if (statusBadge) {
+    statusBadge.textContent = '同步中...';
+    statusBadge.style.background = '#FEF3C7';
+    statusBadge.style.color = '#D97706';
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+    const res = await fetch(`${serverUrl}/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        date: state.currentDate,
+        formattedText: formattedText,
+        records: records.map(r => {
+          const cat = state.categories.find(c => c.id === r.category) || { name: '日常' };
+          return {
+            start: r.start,
+            end: r.end,
+            category: r.category,
+            categoryName: cat.name,
+            note: r.note || ''
+          };
+        })
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    const data = await res.json();
+    if (data.success) {
+      if (statusBadge) {
+        statusBadge.textContent = '🟢 已直通入库';
+        statusBadge.style.background = '#D1FAE5';
+        statusBadge.style.color = '#059669';
+      }
+      showToast('🚀 已成功写入电脑 Obsidian 每日日志！');
+    } else {
+      throw new Error(data.message || '服务端写入异常');
+    }
+  } catch (err) {
+    console.warn('LAN sync failed:', err);
+    if (statusBadge) {
+      statusBadge.textContent = '⚠️ 局域网未连接';
+      statusBadge.style.background = '#FEE2E2';
+      statusBadge.style.color = '#DC2626';
+    }
+    showToast('⚠️ 未连通电脑服务，已为你优先推荐【一键复制】');
+  }
+}
+
+// 测试与电脑同步服务连通性
+async function testObsidianConnection() {
+  const serverInput = document.getElementById('obsidianServerUrl');
+  let serverUrl = (serverInput ? serverInput.value.trim() : '') || 'http://192.168.31.51:28888';
+  serverUrl = serverUrl.replace(/\/+$/, '');
+  const msgEl = document.getElementById('obsidianServerMsg');
+  if (msgEl) {
+    msgEl.style.color = 'var(--text-muted)';
+    msgEl.textContent = '正在检测电脑服务连通性...';
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(`${serverUrl}/status`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    const data = await res.json();
+    if (data.status === 'online') {
+      if (msgEl) {
+        msgEl.style.color = '#10B981';
+        msgEl.textContent = `✅ 连通成功！关联仓库：${data.vault} (已找到今日知行目录)`;
+      }
+      showToast('✅ 电脑服务连通成功！');
+    }
+  } catch (err) {
+    if (msgEl) {
+      msgEl.style.color = '#EF4444';
+      msgEl.textContent = `❌ 无法连接到 ${serverUrl}。请确认电脑已运行 obsidian_sync_server.py 且手机连入同一 Wi-Fi。`;
+    }
+    showToast('❌ 连接失败，请检查服务是否开启');
+  }
+}
+
+// 5. Category Management System
+function saveCategories() {
+  StorageAdapter.save('categories', state.categories);
+  renderCategoryChips();
+  updateUI();
+}
+
+function openCategoryModal() {
+  renderCategoryEditList();
+  const modal = document.getElementById('categoryModal');
+  if (modal) modal.classList.add('open');
+}
+
+function closeCategoryModal() {
+  const modal = document.getElementById('categoryModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function renderCategoryEditList() {
+  const container = document.getElementById('categoryEditList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  state.categories.forEach((cat, index) => {
+    const item = document.createElement('div');
+    item.className = 'category-edit-item';
+    item.innerHTML = `
+      <div class="category-edit-left">
+        <span style="font-size: 1.25rem;">${cat.icon}</span>
+        <div class="category-edit-dot" style="background-color: ${cat.color};"></div>
+        <input type="text" class="category-edit-input" value="${escapeHtml(cat.name)}" title="点击可就地改名">
+      </div>
+      <div class="category-edit-actions">
+        <span style="font-size: 0.7rem; color: ${cat.isWaster ? '#EF4444' : (cat.isProductive ? '#10B981' : '#94A3B8')}; font-weight: 600;">
+          ${cat.isWaster ? '摸鱼' : (cat.isProductive ? '专注' : '日常')}
+        </span>
+        <button type="button" class="category-del-btn" title="删除此分类">🗑️</button>
+      </div>
+    `;
+
+    const nameInput = item.querySelector('.category-edit-input');
+    nameInput.addEventListener('change', () => {
+      const val = nameInput.value.trim();
+      if (val) {
+        cat.name = val;
+        saveCategories();
+        showToast(`已重命名为「${val}」`);
+      }
+    });
+
+    const delBtn = item.querySelector('.category-del-btn');
+    delBtn.addEventListener('click', () => {
+      if (state.categories.length <= 1) {
+        alert('至少保留一个活动分类！');
+        return;
+      }
+      if (confirm(`确定删除分类「${cat.name}」吗？`)) {
+        state.categories.splice(index, 1);
+        if (state.selectedCategory === cat.id) {
+          state.selectedCategory = state.categories[0].id;
+        }
+        saveCategories();
+        renderCategoryEditList();
+        renderTimelineStream();
+        showToast('已删除分类');
+      }
+    });
+
+    container.appendChild(item);
+  });
+}
+
+function handleAddNewCategory() {
+  const nameInp = document.getElementById('newCatName');
+  const iconInp = document.getElementById('newCatIcon');
+  const colorInp = document.getElementById('newCatColor');
+  const prodInp = document.getElementById('newCatIsProductive');
+  const wasteInp = document.getElementById('newCatIsWaster');
+
+  const name = nameInp ? nameInp.value.trim() : '';
+  const icon = (iconInp && iconInp.value.trim()) ? iconInp.value.trim() : '✨';
+  const color = colorInp ? colorInp.value : '#3B82F6';
+  const isProductive = prodInp ? prodInp.checked : false;
+  const isWaster = wasteInp ? wasteInp.checked : false;
+
+  if (!name) {
+    alert('请输入分类名称！');
+    if (nameInp) nameInp.focus();
+    return;
+  }
+
+  const newId = 'cat_' + Date.now().toString(36);
+  state.categories.push({
+    id: newId,
+    name: name,
+    icon: icon,
+    color: color,
+    isProductive: isProductive,
+    isWaster: isWaster
+  });
+
+  saveCategories();
+  renderCategoryEditList();
+
+  if (nameInp) nameInp.value = '';
+  showToast(`已新增分类「${icon} ${name}」`);
+}
+
+function handleResetDefaultCategories() {
+  if (confirm('确定要恢复为系统初始默认的 8 个分类吗？自定义的分类将被重置。')) {
+    state.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+    state.selectedCategory = state.categories[0].id;
+    saveCategories();
+    renderCategoryEditList();
+    showToast('已恢复预设分类');
+  }
+}
+
