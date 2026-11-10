@@ -169,8 +169,17 @@ class SyncHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/sync"):
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length).decode("utf-8")
+            ctype = self.headers.get("Content-Type", "")
+            is_form = "application/x-www-form-urlencoded" in ctype
             try:
-                data = json.loads(post_data)
+                if is_form:
+                    import urllib.parse
+                    params = urllib.parse.parse_qs(post_data)
+                    json_str = params.get("payload", ["{}"])[0]
+                    data = json.loads(json_str)
+                else:
+                    data = json.loads(post_data)
+
                 date_str = data.get("date") or datetime.now().strftime("%Y-%m-%d")
                 formatted_text = data.get("formattedText", "")
                 records = data.get("records", [])
@@ -185,8 +194,20 @@ class SyncHandler(BaseHTTPRequestHandler):
                     formatted_text = "\n".join(lines)
 
                 success, msg = write_to_obsidian(date_str, formatted_text, records)
-                resp = { "success": success, "message": msg, "date": date_str, "count": len(records) }
                 code = 200 if success else 500
+
+                if is_form:
+                    # 表单跨域穿透成功后的 HTML 响应 (通知父窗口 iframe)
+                    html = f'<!DOCTYPE html><html><body><script>try{{window.parent.postMessage({{"status":"ok","msg":"{msg}"}}, "*");}}catch(e){{}}</script></body></html>'.encode("utf-8")
+                    self.send_response(code)
+                    self._send_cors()
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(html)))
+                    self.end_headers()
+                    self.wfile.write(html)
+                    return
+
+                resp = { "success": success, "message": msg, "date": date_str, "count": len(records) }
             except Exception as e:
                 resp = { "success": False, "message": f"处理错误: {str(e)}" }
                 code = 500

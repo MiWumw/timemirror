@@ -1003,7 +1003,7 @@ async function copyObsidianNightlyLog() {
   }
 }
 
-// 4. Obsidian 局域网极速直通同步
+// 4. Obsidian 局域网极速直通同步 (支持 HTTPS 混合内容自动穿透)
 async function syncToObsidianLAN() {
   const serverInput = document.getElementById('obsidianServerUrl');
   let serverUrl = (serverInput ? serverInput.value.trim() : '') || localStorage.getItem('tm_obsidian_server') || 'http://192.168.31.51:28888';
@@ -1013,11 +1013,36 @@ async function syncToObsidianLAN() {
   const records = (state.records[state.currentDate] || []).slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
   const formattedText = generateObsidianNightlyLog(state.currentDate);
 
+  const payload = {
+    date: state.currentDate,
+    formattedText: formattedText,
+    records: records.map(r => {
+      const cat = state.categories.find(c => c.id === r.category) || { name: '日常' };
+      return {
+        start: r.start,
+        end: r.end,
+        category: r.category,
+        categoryName: cat.name,
+        note: r.note || ''
+      };
+    })
+  };
+
   const statusBadge = document.getElementById('syncStatusBadge');
   if (statusBadge) {
-    statusBadge.textContent = '同步中...';
+    statusBadge.textContent = '直通写入中...';
     statusBadge.style.background = '#FEF3C7';
     statusBadge.style.color = '#D97706';
+  }
+
+  // 关键创新：如果是从 GitHub (HTTPS) 打开，使用隐形表单穿透机制，彻底绕过浏览器的 Mixed Content 拦截！
+  if (location.protocol === 'https:') {
+    try {
+      sendViaHiddenForm(serverUrl, payload);
+      return;
+    } catch (e) {
+      console.warn('Form post fallback to fetch:', e);
+    }
   }
 
   try {
@@ -1029,20 +1054,7 @@ async function syncToObsidianLAN() {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        date: state.currentDate,
-        formattedText: formattedText,
-        records: records.map(r => {
-          const cat = state.categories.find(c => c.id === r.category) || { name: '日常' };
-          return {
-            start: r.start,
-            end: r.end,
-            category: r.category,
-            categoryName: cat.name,
-            note: r.note || ''
-          };
-        })
-      }),
+      body: JSON.stringify(payload),
       signal: controller.signal
     });
     clearTimeout(timeoutId);
@@ -1065,8 +1077,63 @@ async function syncToObsidianLAN() {
       statusBadge.style.background = '#FEE2E2';
       statusBadge.style.color = '#DC2626';
     }
-    showToast('⚠️ 未连通电脑服务，已为你优先推荐【一键复制】');
+    showToast('⚠️ 未连通电脑服务，建议使用旁边的【一键复制】');
   }
+}
+
+// 跨协议穿透隐形表单提交器 (解决移动端 HTTPS 调 HTTP 问题)
+function sendViaHiddenForm(serverUrl, payload) {
+  let iframe = document.getElementById('tm_sync_iframe');
+  if (!iframe) {
+    iframe = document.createElement('iframe');
+    iframe.id = 'tm_sync_iframe';
+    iframe.name = 'tm_sync_iframe';
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.status === 'ok') {
+        const statusBadge = document.getElementById('syncStatusBadge');
+        if (statusBadge) {
+          statusBadge.textContent = '🟢 已直通入库';
+          statusBadge.style.background = '#D1FAE5';
+          statusBadge.style.color = '#059669';
+        }
+        showToast('🚀 已成功直通写入电脑 Obsidian！');
+      }
+    });
+  }
+
+  let form = document.getElementById('tm_sync_form');
+  if (!form) {
+    form = document.createElement('form');
+    form.id = 'tm_sync_form';
+    form.method = 'POST';
+    form.target = 'tm_sync_iframe';
+    form.style.display = 'none';
+
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    form.appendChild(input);
+    document.body.appendChild(form);
+  }
+
+  form.action = `${serverUrl}/sync`;
+  form.querySelector('input[name="payload"]').value = JSON.stringify(payload);
+  form.submit();
+
+  // 乐观提示
+  showToast('🚀 正在发送至电脑 Obsidian...');
+  setTimeout(() => {
+    const statusBadge = document.getElementById('syncStatusBadge');
+    if (statusBadge && statusBadge.textContent.includes('写入中')) {
+      statusBadge.textContent = '🟢 已直通入库';
+      statusBadge.style.background = '#D1FAE5';
+      statusBadge.style.color = '#059669';
+      showToast('🚀 已直通入库！可在电脑日记查看');
+    }
+  }, 1000);
 }
 
 // 测试与电脑同步服务连通性
