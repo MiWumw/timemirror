@@ -112,58 +112,113 @@
       </div>
     </main>
 
-    <!-- TAB 2: 每日复盘 (Daily Review) -->
+    <!-- TAB 2: 今日知行与复盘 (Daily Plan, Execution & Reflection) -->
     <section id="tab-review" class="tab-pane tab-content" style="display: none;">
-      <!-- Time Black Hole Alert -->
-      <div id="blackHoleAlert" class="black-hole-alert" style="display: none;">
-        <span class="alert-icon">⚠️</span>
-        <div id="blackHoleSummary" class="alert-text"></div>
+      <!-- 晨起体重卡片 -->
+      <div class="weight-card">
+        <div class="weight-header">
+          <div class="weight-title">
+            <span>⚖️ 晨起体重数据</span>
+            <span id="weightDiffTag" class="weight-diff-tag flat">今日初记</span>
+          </div>
+          <button type="button" id="btnToggleWeightTrend" class="weight-trend-btn">
+            <span>📈 近期走势</span>
+          </button>
+        </div>
+        <div class="weight-input-row">
+          <div class="weight-input-wrap">
+            <input type="number" id="inputDailyWeight" class="weight-input" placeholder="0.0" step="0.1" min="30" max="200">
+            <span class="weight-unit">kg</span>
+          </div>
+          <div class="weight-step-group">
+            <button type="button" class="weight-step-btn" data-step="-0.1">-0.1</button>
+            <button type="button" class="weight-step-btn" data-step="+0.1">+0.1</button>
+            <button type="button" id="btnSaveWeightOnly" class="zhixing-tool-btn" style="background:#10B981;color:#fff;border-color:#10B981;padding:7px 12px;">记下</button>
+          </div>
+        </div>
+        <!-- 折叠体重走势图 -->
+        <div id="weightTrendDrawer" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #A7F3D0;">
+          <div style="font-size: 0.75rem; color: #065F46; font-weight: 600; margin-bottom: 6px;">📊 近 14 天体重变化走势：</div>
+          <div style="height: 160px; position: relative;">
+            <canvas id="weightInlineChart"></canvas>
+          </div>
+        </div>
       </div>
 
-      <!-- Doughnut Chart Card -->
-      <div class="review-card">
-        <div class="review-card-title">
-          <span>📊 今日时间分布比例</span>
+      <!-- 第一段：今日计划 · 晨起立志 -->
+      <div class="zhixing-card">
+        <div class="zhixing-card-header">
+          <div class="zhixing-title">
+            <span>🎯 一、今日计划 · 晨起立志</span>
+          </div>
+          <div class="zhixing-actions">
+            <button type="button" id="btnInsertPlanTemplate" class="zhixing-tool-btn">⚡ 1.2.3.模板</button>
+            <button type="button" id="btnClearPlan" class="zhixing-tool-btn">清空</button>
+          </div>
         </div>
-        <div style="height: 220px; position: relative;">
-          <canvas id="reviewPieChart"></canvas>
+        <div class="zhixing-desc">
+          顺应今日身心气能，每日核心要务不超过 3 件（直通 Obsidian 晨起立志）
+        </div>
+        <textarea id="inputDailyPlan" class="fullscreen-textarea" placeholder="1. 核心要务一&#10;2. 核心要务二&#10;3. 核心要务三"></textarea>
+      </div>
+
+      <!-- 第二段：实际执行 · 暮夜对账 -->
+      <div class="zhixing-card">
+        <div class="zhixing-card-header">
+          <div class="zhixing-title">
+            <span>⚡ 二、实际执行 · 暮夜对账</span>
+          </div>
+          <button type="button" id="btnGoTimelineAdd" class="zhixing-tool-btn" style="color: var(--primary);">➕ 补录时间</button>
+        </div>
+        <div class="zhixing-desc">
+          今天实际做了什么？由时间流自动聚合核算（直通 Obsidian 暮夜对账）
+        </div>
+        <div id="execStreamSummary" class="exec-stream-container">
+          <!-- 动态渲染今天的时间块流水 -->
+        </div>
+
+        <!-- 摸鱼警报与时间分布折叠区 -->
+        <button type="button" id="btnToggleChartDetails" class="exec-collapse-btn">
+          <span id="toggleChartLabel">📊 展开时间饼图与摸鱼深度分析 ▾</span>
+        </button>
+        <div id="chartDetailsDrawer" style="display: none; margin-top: 10px;">
+          <!-- Time Black Hole Alert -->
+          <div id="blackHoleAlert" class="black-hole-alert" style="display: none; margin-bottom: 10px;">
+            <span class="alert-icon">⚠️</span>
+            <div id="blackHoleSummary" class="alert-text"></div>
+          </div>
+          <div style="height: 180px; position: relative;">
+            <canvas id="reviewPieChart"></canvas>
+          </div>
         </div>
       </div>
 
-      <!-- Reflection Input Card -->
-      <div class="review-card">
-        <div class="review-card-title">
-          <span>📝 睡前复盘与自我对话</span>
+      <!-- 第三段：复盘反思 · 诚意慎独 -->
+      <div class="zhixing-card">
+        <div class="zhixing-card-header">
+          <div class="zhixing-title">
+            <span>🪞 三、复盘反思 · 诚意慎独</span>
+          </div>
+          <div class="zhixing-actions">
+            <button type="button" id="btnClearReflection" class="zhixing-tool-btn">清空</button>
+          </div>
         </div>
+        <div class="zhixing-desc">
+          复盘今日得失、觉察身心起心动念，立定明日微调方案（直通 Obsidian 诚意慎独）
+        </div>
+        <textarea id="inputDailyReflection" class="fullscreen-textarea large" placeholder="自由写下今日得失反思、身体觉知，以及明天的一个微小改变策略..."></textarea>
+      </div>
 
-        <div style="text-align: center; margin-bottom: 6px;">
-          <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">为今天的时间掌控感打个分：</span>
-        </div>
-        <div class="star-rating-row">
-          <button class="star-btn" data-score="1">★</button>
-          <button class="star-btn" data-score="2">★</button>
-          <button class="star-btn" data-score="3">★</button>
-          <button class="star-btn" data-score="4">★</button>
-          <button class="star-btn" data-score="5">★</button>
-        </div>
-
-        <div class="reflection-question">
-          <label>🌟 1. 今天最值得肯定的专注投入：</label>
-          <textarea id="reflectPraise" placeholder="例如：上午集中精神把最难的任务搞定了，没被打扰..."></textarea>
-        </div>
-
-        <div class="reflection-question">
-          <label>🕵️ 2. 今天哪些时间在不知不觉中被偷走了？</label>
-          <textarea id="reflectWasted" placeholder="例如：早上在床上刷了半小时手机，起得太迟导致上午有点慌乱..."></textarea>
-        </div>
-
-        <div class="reflection-question">
-          <label>🎯 3. 明天的一个微小改变策略：</label>
-          <textarea id="reflectAction" placeholder="例如：今晚把手机放客厅充电，起床第一件事先倒一杯温水喝..."></textarea>
-        </div>
-
-        <button id="btnSaveReflection" class="btn-primary" style="margin-top: 8px;">
-          💾 保存今日复盘心得
+      <!-- 底部知行合流操作区 -->
+      <div class="zhixing-btn-group">
+        <button type="button" id="btnSaveDailyZhixing" class="btn-primary" style="background: var(--primary);">
+          💾 保存今日知行记录 (本地存储)
+        </button>
+        <button type="button" id="btnSyncObsidianInReview" class="btn-primary btn-obsidian-sync">
+          🚀 局域网直通写入电脑 Obsidian
+        </button>
+        <button type="button" id="btnCopyDailyZhixing" class="btn-secondary">
+          📋 一键复制完整知行 Markdown
         </button>
       </div>
     </section>
@@ -178,6 +233,21 @@
           红色代表被动消耗时间，蓝色代表高价值产出。随着自我意识提升，红柱会逐渐缩短。
         </div>
         <div style="height: 240px; position: relative;">
+          <canvas id="trendBarChart"></canvas>
+        </div>
+      </div>
+
+      <div class="review-card">
+        <div class="review-card-title">
+          <span>⚖️ 近期体重走势曲线 (kg)</span>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px;">
+          身体修持与力量进阶的晴雨表。持续记录，随时回顾身心代谢变化。
+        </div>
+        <div style="height: 220px; position: relative;">
+          <canvas id="trendWeightChart"></canvas>
+        </div>
+      </div>
           <canvas id="trendBarChart"></canvas>
         </div>
       </div>
@@ -230,8 +300,8 @@
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #F1F5F9; padding: 10px 12px; border-radius: var(--radius-md);">
           <div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.1.0 (知行合流版)</div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261110 · 卡片点按编辑 + Obsidian联动 + 分类自定义</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.2.0 (知行合流三段与身心体态版)</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261110 · 晨起立志+暮夜对账+诚意慎独整屏三段 + 每日体重追踪</div>
           </div>
           <button id="btnOpenChangelog" class="gap-add-btn" style="padding: 6px 14px;">
             查看更新日志
@@ -443,12 +513,30 @@
         </div>
 
         <div class="changelog-timeline">
-          <!-- v1.1.0 Current -->
+          <!-- v1.2.0 Current -->
           <div class="changelog-card current">
             <div class="changelog-header">
               <div class="changelog-version">
+                <span>v1.2.0</span>
+                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 知行三段与身心体态版</span>
+              </div>
+              <span class="changelog-date">2026-11-10</span>
+            </div>
+            <ul class="changelog-list">
+              <li><b>🎯 晨起立志·今日计划</b>：全新整屏宽大输入框，一键插入 1. 2. 3. 核心要务，秒级直通同步到 Obsidian 晨起立志板块。</li>
+              <li><b>⚡ 暮夜对账·实际执行</b>：自动根据当日时间打卡流动态生成执行列表，直观对照计划与实际执行，支持一键补录与饼图分析折叠展开。</li>
+              <li><b>🪞 诚意慎独·复盘反思</b>：彻底清除原有死板小输入框，换为整屏开阔自适应大视窗，自由记录得失反思与明日调适方案。</li>
+              <li><b>⚖️ 每日体重追踪与趋势</b>：支持晨起记录体重（kg，支持 ±0.1 微调），自动与前日对比，并在复盘与趋势洞察提供近 14 天体重折线图，同时直通 Obsidian 写入属性与身体纪事。</li>
+              <li><b>🚀 全要素局域网直通</b>：点击直通写入，计划、执行、反思与体重四位一体全量注入电脑本地 Obsidian，稳定幂等无重复。</li>
+            </ul>
+          </div>
+
+          <!-- v1.1.0 Previous -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <div class="changelog-version">
                 <span>v1.1.0</span>
-                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 知行合流版</span>
+                <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
               </div>
               <span class="changelog-date">2026-11-10</span>
             </div>

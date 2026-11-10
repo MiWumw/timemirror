@@ -46,8 +46,14 @@ def get_lan_ip():
     except Exception:
         return "127.0.0.1"
 
-def write_to_obsidian(date_str, formatted_text, records=None):
-    """精确写入或更新当天 Obsidian 知行日志的【### ⚡ 暮夜对账】板块"""
+def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, reflection_text=None, weight=None):
+    """
+    精确写入或更新当天 Obsidian 知行日志的四大核心元素：
+    1. 【### 🎯 晨起立志（打算做什么？）】—— 今日计划
+    2. 【### ⚡ 暮夜对账（实际做了什么？）】—— 时间执行流水
+    3. 【### 🪞 诚意慎独（今日得失与明日调适）】—— 今日反思
+    4. 【晨起体重】—— Frontmatter weight 与 正文晨起体重记录
+    """
     diary_dir = os.path.join(VAULT_ROOT, DIARY_SUBDIR)
     os.makedirs(diary_dir, exist_ok=True)
     target_file = os.path.join(diary_dir, f"{date_str}_每日知行日志.md")
@@ -59,45 +65,105 @@ def write_to_obsidian(date_str, formatted_text, records=None):
                 content = tf.read()
             content = content.replace("{{date}}", date_str)
         else:
-            content = f"# 📅 {date_str} 每日知行日志\n\n### 🎯 晨起立志\n- [ ] 1. \n\n### ⚡ 暮夜对账（实际做了什么？）\n\n### 🪞 诚意慎独\n"
-
-        section_pattern = r"(###\s*⚡\s*暮夜对账[^\n]*\n)"
-        if re.search(section_pattern, content):
-            replacement = r"\1" + formatted_text.strip() + "\n\n"
-            content = re.sub(section_pattern, replacement, content, count=1)
-        else:
-            content += f"\n### ⚡ 暮夜对账（实际做了什么？）\n{formatted_text.strip()}\n"
-
-        with open(target_file, "w", encoding="utf-8") as f:
-            f.write(content)
-        return True, f"已根据模板新建今日日志并写入：{date_str}_每日知行日志.md"
-
-    # 2. 文件已存在，精确替换对账段落（多次写入绝不重复累加）
-    with open(target_file, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    pattern = r"(###\s*⚡\s*暮夜对账[^\n]*\n)([\s\S]*?)(?=\n---|###|\Z)"
-    match = re.search(pattern, content)
-
-    if match:
-        new_section = match.group(1) + formatted_text.strip() + "\n\n"
-        content = content[:match.start()] + new_section + content[match.end():]
+            content = (
+                f"---\ndate: \"{date_str}\"\ntags:\n  - 知行日志\n---\n\n"
+                f"# 📅 {date_str} 每日知行与身心修持日志\n\n"
+                f"### 🎯 晨起立志（打算做什么？）\n- [ ] 1. \n\n"
+                f"### ⚡ 暮夜对账（实际做了什么？）\n\n"
+                f"### 🪞 诚意慎独（今日得失与明日调适）\n\n"
+            )
     else:
-        insert_marker = "### 🎯 晨起立志"
-        if insert_marker in content:
-            pos = content.find(insert_marker)
-            next_heading = content.find("###", pos + len(insert_marker))
-            if next_heading != -1:
-                content = content[:next_heading] + f"### ⚡ 暮夜对账（实际做了什么？）\n{formatted_text.strip()}\n\n" + content[next_heading:]
+        with open(target_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+    # 2. 更新或写入【体重 (Weight)】
+    if weight is not None and str(weight).strip() != "":
+        w_val = str(weight).strip()
+        # 更新 YAML Frontmatter
+        fm_match = re.search(r"^---\n([\s\S]*?)\n---", content)
+        if fm_match:
+            fm_text = fm_match.group(1)
+            if re.search(r"^weight:.*$", fm_text, re.MULTILINE):
+                new_fm = re.sub(r"^weight:.*$", f"weight: {w_val}", fm_text, flags=re.MULTILINE)
+            else:
+                new_fm = fm_text.rstrip() + f"\nweight: {w_val}\n"
+            content = f"---\n{new_fm.strip()}\n---" + content[fm_match.end():]
+
+        # 更新或插入第三部分的晨起体重
+        if "- **晨起体重**：" in content:
+            content = re.sub(r"- \*\*晨起体重\*\*：.*", f"- **晨起体重**：{w_val} kg", content)
+        elif "### 1. 晨起体感与起居" in content:
+            content = content.replace("### 1. 晨起体感与起居\n", f"### 1. 晨起体感与起居\n- **晨起体重**：{w_val} kg\n")
+
+    # 3. 更新或写入【今日计划（### 🎯 晨起立志）】
+    if plan_text is not None and plan_text.strip():
+        plan_lines = [l.strip() for l in plan_text.strip().split("\n") if l.strip()]
+        formatted_plans = []
+        for i, l in enumerate(plan_lines, 1):
+            clean_l = re.sub(r"^(?:-\s*\[[ x]\]\s*)?(?:\d+[\.\、]\s*)?", "", l).strip()
+            formatted_plans.append(f"- [ ] {i}. {clean_l}")
+        plan_block = "\n".join(formatted_plans)
+
+        pattern_plan = r"(###\s*🎯\s*晨起立志[^\n]*\n)([\s\S]*?)(?=\n###|\n---|\Z)"
+        match_plan = re.search(pattern_plan, content)
+        if match_plan:
+            orig_body = match_plan.group(2)
+            quote = ""
+            if "> 顺应今日身心气能" in orig_body:
+                quote = "> 顺应今日身心气能，参考 [[学习项目四阶追踪表]]，每日核心要务不超过 3 件：\n"
+            new_section = match_plan.group(1) + quote + plan_block + "\n\n"
+            content = content[:match_plan.start()] + new_section + content[match_plan.end():]
+        else:
+            insert_marker = "# 🎯 第一部分"
+            if insert_marker in content:
+                pos = content.find(insert_marker)
+                nl = content.find("\n", pos)
+                content = content[:nl+1] + f"\n### 🎯 晨起立志（打算做什么？）\n{plan_block}\n\n" + content[nl+1:]
+            else:
+                content += f"\n\n### 🎯 晨起立志（打算做什么？）\n{plan_block}\n"
+
+    # 4. 更新或写入【暮夜对账（### ⚡ 暮夜对账）】
+    if formatted_text is not None and formatted_text.strip():
+        pattern_exec = r"(###\s*⚡\s*暮夜对账[^\n]*\n)([\s\S]*?)(?=\n###|\n---|\Z)"
+        match_exec = re.search(pattern_exec, content)
+        if match_exec:
+            new_section = match_exec.group(1) + formatted_text.strip() + "\n\n"
+            content = content[:match_exec.start()] + new_section + content[match_exec.end():]
+        else:
+            insert_marker = "### 🎯 晨起立志"
+            if insert_marker in content:
+                pos = content.find(insert_marker)
+                next_heading = content.find("###", pos + len(insert_marker))
+                if next_heading != -1:
+                    content = content[:next_heading] + f"### ⚡ 暮夜对账（实际做了什么？）\n{formatted_text.strip()}\n\n" + content[next_heading:]
+                else:
+                    content += f"\n\n### ⚡ 暮夜对账（实际做了什么？）\n{formatted_text.strip()}\n"
             else:
                 content += f"\n\n### ⚡ 暮夜对账（实际做了什么？）\n{formatted_text.strip()}\n"
+
+    # 5. 更新或写入【今日反思（### 🪞 诚意慎独）】
+    if reflection_text is not None and reflection_text.strip():
+        refl_lines = [l.strip() for l in reflection_text.strip().split("\n") if l.strip()]
+        formatted_refl = []
+        for l in refl_lines:
+            if not l.startswith("-"):
+                formatted_refl.append(f"- {l}")
+            else:
+                formatted_refl.append(l)
+        refl_block = "\n".join(formatted_refl)
+
+        pattern_refl = r"(###\s*🪞\s*诚意慎独[^\n]*\n)([\s\S]*?)(?=\n###|\n---|\Z)"
+        match_refl = re.search(pattern_refl, content)
+        if match_refl:
+            new_section = match_refl.group(1) + refl_block + "\n\n"
+            content = content[:match_refl.start()] + new_section + content[match_refl.end():]
         else:
-            content += f"\n\n### ⚡ 暮夜对账（实际做了什么？）\n{formatted_text.strip()}\n"
+            content += f"\n\n### 🪞 诚意慎独（今日得失与明日调适）\n{refl_block}\n"
 
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(content)
 
-    return True, f"已成功刷新 {date_str}_每日知行日志.md 的暮夜对账"
+    return True, f"已成功更新 {date_str}_每日知行日志.md 的计划、执行、反思与体重数据！"
 
 class SyncHandler(BaseHTTPRequestHandler):
     def _send_cors(self):
@@ -118,7 +184,7 @@ class SyncHandler(BaseHTTPRequestHandler):
             resp = {
                 "status": "online",
                 "app": "TimeMirror-Obsidian-Sync-Bridge",
-                "version": "1.1.0",
+                "version": "1.2.0",
                 "vault": VAULT_ROOT,
                 "lan_ip": lan_ip,
                 "port": PORT,
@@ -183,6 +249,9 @@ class SyncHandler(BaseHTTPRequestHandler):
                 date_str = data.get("date") or datetime.now().strftime("%Y-%m-%d")
                 formatted_text = data.get("formattedText", "")
                 records = data.get("records", [])
+                plan_text = data.get("planText", "")
+                reflection_text = data.get("reflectionText", "")
+                weight = data.get("weight", None)
 
                 if not formatted_text and records:
                     lines = []
@@ -193,7 +262,14 @@ class SyncHandler(BaseHTTPRequestHandler):
                         lines.append(line)
                     formatted_text = "\n".join(lines)
 
-                success, msg = write_to_obsidian(date_str, formatted_text, records)
+                success, msg = write_to_obsidian(
+                    date_str, 
+                    formatted_text, 
+                    records=records, 
+                    plan_text=plan_text, 
+                    reflection_text=reflection_text, 
+                    weight=weight
+                )
                 code = 200 if success else 500
 
                 if is_form:

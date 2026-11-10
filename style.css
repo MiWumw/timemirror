@@ -1115,4 +1115,328 @@ body {
   opacity: 1;
 }
 
+/* ========================================================
+   v1.2.0: 知行合流三段式与体重身心数据 (Full-screen Zhixing)
+   ======================================================== */
+
+/* 体重记录卡片 */
+.weight-card {
+  background: linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%);
+  border: 1.5px solid #86EFAC;
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.06);
+}
+
+.weight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.weight-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #065F46;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.weight-trend-btn {
+  background: #DCFCE7;
+  border: 1px solid #86EFAC;
+  color: #047857;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.weight-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.weight-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  border: 1.5px solid #A7F3D0;
+  border-radius: var(--radius-md);
+  padding: 4px 12px;
+  flex: 1;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.weight-input-wrap:focus-within {
+  border-color: #10B981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.weight-input {
+  border: none;
+  outline: none;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #0F172A;
+  width: 100%;
+  font-family: inherit;
+  background: transparent;
+}
+
+.weight-unit {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #64748B;
+  margin-left: 4px;
+}
+
+.weight-step-group {
+  display: flex;
+  gap: 6px;
+}
+
+.weight-step-btn {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: var(--radius-md);
+  color: var(--text-main);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.weight-step-btn:active {
+  background: #E2E8F0;
+  transform: scale(0.95);
+}
+
+.weight-diff-tag {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.weight-diff-tag.down {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.weight-diff-tag.up {
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
+.weight-diff-tag.flat {
+  background: #F1F5F9;
+  color: #64748B;
+}
+
+/* 整屏三段式卡片 (Zhixing Section Cards) */
+.zhixing-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.2s;
+}
+
+.zhixing-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.zhixing-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zhixing-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 12px;
+}
+
+.zhixing-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.zhixing-tool-btn {
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.zhixing-tool-btn:hover, .zhixing-tool-btn:active {
+  background: #E2E8F0;
+  color: var(--text-main);
+}
+
+/* 大视窗整屏自适应输入框 */
+.fullscreen-textarea {
+  width: 100%;
+  min-height: 130px;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  outline: none;
+  background: #F8FAFC;
+  color: var(--text-main);
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.fullscreen-textarea.large {
+  min-height: 190px;
+}
+
+.fullscreen-textarea:focus {
+  border-color: var(--primary);
+  background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+}
+
+/* 暮夜对账实际执行渲染列表 */
+.exec-stream-container {
+  background: #F8FAFC;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.exec-item-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #E2E8F0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.exec-item-row:last-child {
+  border-bottom: none;
+}
+
+.exec-item-time {
+  font-family: monospace;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+}
+
+.exec-item-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.exec-item-note {
+  color: var(--text-muted);
+  flex: 1;
+  word-break: break-all;
+}
+
+.exec-empty-hint {
+  text-align: center;
+  padding: 16px 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.exec-collapse-btn {
+  background: none;
+  border: none;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 知行操作按钮组 */
+.zhixing-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  margin-bottom: 30px;
+}
+
+.btn-obsidian-sync {
+  background: #10B981 !important;
+  font-size: 0.92rem;
+  font-weight: 700;
+  padding: 12px !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+}
+
+.btn-obsidian-sync:active {
+  background: #059669 !important;
+}
+
+.btn-secondary {
+  background: #FFFFFF;
+  border: 1.5px solid var(--border);
+  color: var(--text-main);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.15s;
+}
+
+.btn-secondary:active {
+  background: #F1F5F9;
+}
+
+
 

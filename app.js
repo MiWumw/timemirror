@@ -55,6 +55,22 @@ function saveRecords() {
   StorageAdapter.save('records', state.records);
 }
 
+function loadPlans() {
+  return StorageAdapter.load('plans', {});
+}
+
+function savePlans() {
+  StorageAdapter.save('plans', state.plans);
+}
+
+function loadWeights() {
+  return StorageAdapter.load('weights', {});
+}
+
+function saveWeights() {
+  StorageAdapter.save('weights', state.weights);
+}
+
 function loadReflections() {
   return StorageAdapter.load('reflections', {});
 }
@@ -69,12 +85,16 @@ let state = {
   activeTab: 'timeline',
   categories: loadCategories(),
   records: loadRecords(),
+  plans: loadPlans(),
+  weights: loadWeights(),
   reflections: loadReflections(),
   selectedCategory: 'phone',
   editingRecordId: null,
   charts: {
     review: null,
-    trend: null
+    trend: null,
+    weightInline: null,
+    weightTrend: null
   }
 };
 
@@ -141,14 +161,31 @@ const fabAddBtn = document.getElementById('fabAddBtn');
 const navItems = document.querySelectorAll('.nav-item');
 const tabPanes = document.querySelectorAll('.tab-pane');
 
-// Review Tab Elements
-const starBtns = document.querySelectorAll('.star-btn');
-const inputReflectPraise = document.getElementById('reflectPraise');
-const inputReflectWasted = document.getElementById('reflectWasted');
-const inputReflectAction = document.getElementById('reflectAction');
-const btnSaveReflection = document.getElementById('btnSaveReflection');
+// Review / Zhixing Tab Elements (v1.2.0)
+const inputDailyWeight = document.getElementById('inputDailyWeight');
+const weightDiffTag = document.getElementById('weightDiffTag');
+const btnToggleWeightTrend = document.getElementById('btnToggleWeightTrend');
+const weightTrendDrawer = document.getElementById('weightTrendDrawer');
+const btnSaveWeightOnly = document.getElementById('btnSaveWeightOnly');
+
+const inputDailyPlan = document.getElementById('inputDailyPlan');
+const btnInsertPlanTemplate = document.getElementById('btnInsertPlanTemplate');
+const btnClearPlan = document.getElementById('btnClearPlan');
+
+const execStreamSummary = document.getElementById('execStreamSummary');
+const btnGoTimelineAdd = document.getElementById('btnGoTimelineAdd');
+const btnToggleChartDetails = document.getElementById('btnToggleChartDetails');
+const chartDetailsDrawer = document.getElementById('chartDetailsDrawer');
+const toggleChartLabel = document.getElementById('toggleChartLabel');
 const blackHoleAlert = document.getElementById('blackHoleAlert');
 const blackHoleSummary = document.getElementById('blackHoleSummary');
+
+const inputDailyReflection = document.getElementById('inputDailyReflection');
+const btnClearReflection = document.getElementById('btnClearReflection');
+
+const btnSaveDailyZhixing = document.getElementById('btnSaveDailyZhixing');
+const btnSyncObsidianInReview = document.getElementById('btnSyncObsidianInReview');
+const btnCopyDailyZhixing = document.getElementById('btnCopyDailyZhixing');
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -225,16 +262,105 @@ function initEventListeners() {
     });
   });
 
-  // Star ratings in review
-  starBtns.forEach(btn => {
+  // --- v1.2.0: 知行三段与体重模块事件监听 ---
+  // 体重步进微调按钮 (-0.1 / +0.1)
+  document.querySelectorAll('.weight-step-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      const score = parseInt(btn.dataset.score, 10);
-      setStarRating(score);
+      const step = parseFloat(btn.dataset.step) || 0;
+      let curr = parseFloat(inputDailyWeight.value);
+      if (isNaN(curr) || curr <= 0) {
+        // 取最近一次记录的体重作为基准，若无则默认为 65.0
+        const recentWeight = getMostRecentWeight();
+        curr = recentWeight > 0 ? recentWeight : 65.0;
+      } else {
+        curr += step;
+      }
+      inputDailyWeight.value = curr.toFixed(1);
+      handleSaveWeightOnly(false);
     });
   });
 
-  // Save reflection
-  btnSaveReflection.addEventListener('click', handleSaveReflection);
+  // 独立保存体重按钮
+  if (btnSaveWeightOnly) {
+    btnSaveWeightOnly.addEventListener('click', () => handleSaveWeightOnly(true));
+  }
+
+  // 体重走势折叠抽屉切换
+  if (btnToggleWeightTrend && weightTrendDrawer) {
+    btnToggleWeightTrend.addEventListener('click', () => {
+      const isHidden = weightTrendDrawer.style.display === 'none';
+      weightTrendDrawer.style.display = isHidden ? 'block' : 'none';
+      btnToggleWeightTrend.innerHTML = isHidden ? '<span>✕ 收起走势</span>' : '<span>📈 近期走势</span>';
+      if (isHidden) renderWeightInlineChart();
+    });
+  }
+
+  // 计划模板插入与清空
+  if (btnInsertPlanTemplate && inputDailyPlan) {
+    btnInsertPlanTemplate.addEventListener('click', () => {
+      const current = inputDailyPlan.value.trim();
+      if (!current) {
+        inputDailyPlan.value = '1. \n2. \n3. ';
+      } else {
+        inputDailyPlan.value = current + '\n' + (current.split('\n').length + 1) + '. ';
+      }
+      inputDailyPlan.focus();
+    });
+  }
+  if (btnClearPlan && inputDailyPlan) {
+    btnClearPlan.addEventListener('click', () => {
+      if (confirm('确定清空今日计划内容吗？')) {
+        inputDailyPlan.value = '';
+        state.plans[state.currentDate] = '';
+        savePlans();
+        showToast('已清空今日计划');
+      }
+    });
+  }
+
+  // 补录时间快捷跳转
+  if (btnGoTimelineAdd) {
+    btnGoTimelineAdd.addEventListener('click', () => {
+      switchTab('timeline');
+      openRecordModal();
+    });
+  }
+
+  // 饼图与摸鱼分析折叠抽屉
+  if (btnToggleChartDetails && chartDetailsDrawer) {
+    btnToggleChartDetails.addEventListener('click', () => {
+      const isHidden = chartDetailsDrawer.style.display === 'none';
+      chartDetailsDrawer.style.display = isHidden ? 'block' : 'none';
+      if (toggleChartLabel) {
+        toggleChartLabel.textContent = isHidden ? '📊 收起时间饼图与分析 ▴' : '📊 展开时间饼图与摸鱼深度分析 ▾';
+      }
+    });
+  }
+
+  // 反思清空
+  if (btnClearReflection && inputDailyReflection) {
+    btnClearReflection.addEventListener('click', () => {
+      if (confirm('确定清空今日复盘反思吗？')) {
+        inputDailyReflection.value = '';
+        state.reflections[state.currentDate] = '';
+        saveReflections();
+        showToast('已清空今日反思');
+      }
+    });
+  }
+
+  // 保存今日知行
+  if (btnSaveDailyZhixing) {
+    btnSaveDailyZhixing.addEventListener('click', handleSaveDailyZhixing);
+  }
+
+  // 复盘页局域网直通写入与一键复制
+  if (btnSyncObsidianInReview) {
+    btnSyncObsidianInReview.addEventListener('click', syncToObsidianLAN);
+  }
+  if (btnCopyDailyZhixing) {
+    btnCopyDailyZhixing.addEventListener('click', copyDailyZhixingMarkdown);
+  }
 
   // Obsidian Sync & Copy Buttons
   const btnCopyObsidian = document.getElementById('btnCopyObsidian');
@@ -666,39 +792,316 @@ function switchTab(tabName) {
   updateUI();
 }
 
-// Review Tab Logic
+// ========================================================
+// v1.2.0: 知行三段合流 (晨起立志 + 暮夜对账 + 诚意慎独) 与体重数据
+// ========================================================
+
+function getMostRecentWeight() {
+  const dates = Object.keys(state.weights).sort();
+  if (dates.length === 0) return 0;
+  return state.weights[dates[dates.length - 1]] || 0;
+}
+
+// Review Tab Controller
 function renderReviewTab() {
-  const records = getTodayRecords();
+  renderDailyWeightSection();
+  renderDailyPlanSection();
+  renderDailyExecutionSection();
+  renderDailyReflectionSection();
+}
+
+// 1. 体重模块渲染与计算
+function renderDailyWeightSection() {
+  if (!inputDailyWeight) return;
+
+  const currentWeight = state.weights[state.currentDate];
+  inputDailyWeight.value = (currentWeight !== undefined && currentWeight !== null) ? currentWeight : '';
+
+  // 计算与昨天的差值
+  const d = new Date(state.currentDate);
+  d.setDate(d.getDate() - 1);
+  const yestStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const yestWeight = state.weights[yestStr];
+
+  if (weightDiffTag) {
+    if (currentWeight !== undefined && currentWeight !== null && yestWeight !== undefined && yestWeight !== null) {
+      const diff = Number((currentWeight - yestWeight).toFixed(1));
+      if (diff < 0) {
+        weightDiffTag.className = 'weight-diff-tag down';
+        weightDiffTag.textContent = `↓ 减轻 ${Math.abs(diff)} kg`;
+      } else if (diff > 0) {
+        weightDiffTag.className = 'weight-diff-tag up';
+        weightDiffTag.textContent = `↑ 增加 ${diff} kg`;
+      } else {
+        weightDiffTag.className = 'weight-diff-tag flat';
+        weightDiffTag.textContent = '与昨日持平';
+      }
+    } else if (currentWeight !== undefined && currentWeight !== null) {
+      weightDiffTag.className = 'weight-diff-tag flat';
+      weightDiffTag.textContent = '今日已记';
+    } else {
+      weightDiffTag.className = 'weight-diff-tag flat';
+      weightDiffTag.textContent = '待记录';
+    }
+  }
+
+  // 若展开了折叠抽屉，重新渲染内联走势图
+  if (weightTrendDrawer && weightTrendDrawer.style.display !== 'none') {
+    renderWeightInlineChart();
+  }
+}
+
+function handleSaveWeightOnly(showToastNotice = true) {
+  const val = inputDailyWeight.value.trim();
+  if (val === '') {
+    delete state.weights[state.currentDate];
+  } else {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num > 0) {
+      state.weights[state.currentDate] = Number(num.toFixed(1));
+    }
+  }
+  saveWeights();
+  renderDailyWeightSection();
+  if (showToastNotice) {
+    showToast('⚖️ 体重数据已保存');
+  }
+}
+
+// 2. 第一段：今日计划 (晨起立志) 渲染
+function renderDailyPlanSection() {
+  if (!inputDailyPlan) return;
+  inputDailyPlan.value = state.plans[state.currentDate] || '';
+}
+
+// 3. 第二段：实际执行 (暮夜对账) 动态流渲染
+function renderDailyExecutionSection() {
+  if (!execStreamSummary) return;
+
+  const records = getTodayRecords().slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
   const categoryTotals = {};
   let totalDayMins = 0;
   let phoneMins = 0;
 
-  records.forEach(r => {
-    const dur = getDurationMinutes(r.start, r.end);
-    totalDayMins += dur;
-    categoryTotals[r.category] = (categoryTotals[r.category] || 0) + dur;
-    if (r.category === 'phone') phoneMins += dur;
-  });
-
-  // Black Hole Alert
-  if (phoneMins > 0) {
-    const phoneHours = (phoneMins / 60).toFixed(1);
-    const percent = totalDayMins > 0 ? ((phoneMins / totalDayMins) * 100).toFixed(0) : 0;
-    blackHoleAlert.style.display = 'flex';
-    blackHoleSummary.innerHTML = `今日在<b>【刷手机/摸鱼】</b>上累计花费了 <b>${phoneHours} 小时</b>（约占已记录时间的 ${percent}%）。早起醒后的这几十分钟常是无意识流逝的起点，反思一下明天如何打破这个循环？`;
+  if (records.length === 0) {
+    execStreamSummary.innerHTML = `
+      <div class="exec-empty-hint">
+        🌱 今天还没有时间打卡记录<br>
+        <span style="font-size: 0.72rem; color: var(--text-light); margin-top: 4px; display: inline-block;">
+          点击右上角【➕ 补录时间】开始对账
+        </span>
+      </div>
+    `;
   } else {
-    blackHoleAlert.style.display = 'none';
+    let html = '';
+    records.forEach(r => {
+      const dur = getDurationMinutes(r.start, r.end);
+      totalDayMins += dur;
+      categoryTotals[r.category] = (categoryTotals[r.category] || 0) + dur;
+      if (r.category === 'phone') phoneMins += dur;
+
+      const cat = state.categories.find(c => c.id === r.category) || { name: '日常', color: '#94A3B8' };
+      const note = r.note ? r.note.trim() : '打卡完成';
+      html += `
+        <div class="exec-item-row">
+          <span class="exec-item-time">${r.start} - ${r.end}</span>
+          <span class="exec-item-badge" style="background:${cat.color}1A; color:${cat.color}; border: 1px solid ${cat.color}40;">
+            ${cat.name}
+          </span>
+          <span class="exec-item-note">${escapeHtml(note)}</span>
+        </div>
+      `;
+    });
+    execStreamSummary.innerHTML = html;
   }
 
-  // Render Doughnut Chart
-  renderCategoryDoughnutChart(categoryTotals);
+  // 摸鱼黑洞预警
+  if (blackHoleAlert && blackHoleSummary) {
+    if (phoneMins > 0) {
+      const phoneHours = (phoneMins / 60).toFixed(1);
+      const percent = totalDayMins > 0 ? ((phoneMins / totalDayMins) * 100).toFixed(0) : 0;
+      blackHoleAlert.style.display = 'flex';
+      blackHoleSummary.innerHTML = `今日在<b>【刷手机/摸鱼】</b>上累计花费了 <b>${phoneHours} 小时</b>（约占已记录时间的 ${percent}%）。早起醒后的这几十分钟常是无意识流逝的起点，反思一下明天如何打破这个循环？`;
+    } else {
+      blackHoleAlert.style.display = 'none';
+    }
+  }
 
-  // Load existing reflection
-  const refl = state.reflections[state.currentDate] || { rating: 0, praise: '', wasted: '', action: '' };
-  setStarRating(refl.rating || 0);
-  inputReflectPraise.value = refl.praise || '';
-  inputReflectWasted.value = refl.wasted || '';
-  inputReflectAction.value = refl.action || '';
+  // 渲染时间分布甜甜圈饼图
+  renderCategoryDoughnutChart(categoryTotals);
+}
+
+// 4. 第三段：复盘反思 (诚意慎独) 渲染
+function renderDailyReflectionSection() {
+  if (!inputDailyReflection) return;
+  const raw = state.reflections[state.currentDate];
+  if (!raw) {
+    inputDailyReflection.value = '';
+    return;
+  }
+
+  // 平滑兼容旧版本 3 个问答格式的数据对象
+  if (typeof raw === 'object' && raw !== null) {
+    const parts = [];
+    if (raw.praise) parts.push(`【专注投入】${raw.praise}`);
+    if (raw.wasted) parts.push(`【时间黑洞】${raw.wasted}`);
+    if (raw.action) parts.push(`【明日调适】${raw.action}`);
+    inputDailyReflection.value = parts.join('\n');
+  } else {
+    inputDailyReflection.value = String(raw);
+  }
+}
+
+// 5. 保存知行合流整套数据
+function handleSaveDailyZhixing() {
+  // 保存计划
+  if (inputDailyPlan) {
+    state.plans[state.currentDate] = inputDailyPlan.value.trim();
+    savePlans();
+  }
+
+  // 保存反思
+  if (inputDailyReflection) {
+    state.reflections[state.currentDate] = inputDailyReflection.value.trim();
+    saveReflections();
+  }
+
+  // 保存体重
+  handleSaveWeightOnly(false);
+
+  showToast('🎉 今日计划、反思与体重已全部妥善保存！');
+}
+
+// 6. 内联 14 天体重走势图 (复盘页内)
+function renderWeightInlineChart() {
+  const ctx = document.getElementById('weightInlineChart');
+  if (!ctx) return;
+
+  const days = [];
+  const weightData = [];
+
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dateLabel = `${d.getMonth() + 1}/${d.getDate()}`;
+    days.push(dateLabel);
+
+    const w = state.weights[dateStr];
+    weightData.push(w !== undefined ? w : null);
+  }
+
+  if (state.charts.weightInline) {
+    state.charts.weightInline.destroy();
+  }
+
+  state.charts.weightInline = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [{
+        label: '体重 (kg)',
+        data: weightData,
+        borderColor: '#10B981',
+        backgroundColor: 'rgba(16, 185, 129, 0.12)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        spanGaps: true,
+        pointBackgroundColor: '#059669',
+        pointRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (item) => ` ${item.raw} kg`
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: {
+            stepSize: 0.5,
+            font: { size: 10 }
+          }
+        },
+        x: {
+          ticks: { font: { size: 9 } }
+        }
+      }
+    }
+  });
+}
+
+// 7. 趋势页 30 天体重深度走势图 (Tab 3)
+function renderWeightTrendChart() {
+  const ctx = document.getElementById('trendWeightChart');
+  if (!ctx) return;
+
+  const days = [];
+  const weightData = [];
+
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dateLabel = `${d.getMonth() + 1}/${d.getDate()}`;
+    days.push(dateLabel);
+
+    const w = state.weights[dateStr];
+    weightData.push(w !== undefined ? w : null);
+  }
+
+  if (state.charts.weightTrend) {
+    state.charts.weightTrend.destroy();
+  }
+
+  state.charts.weightTrend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [{
+        label: '体重走势 (kg)',
+        data: weightData,
+        borderColor: '#059669',
+        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.25,
+        spanGaps: true,
+        pointBackgroundColor: '#047857',
+        pointRadius: 3.5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (item) => ` ${item.label}: ${item.raw} kg`
+          }
+        }
+      },
+      scales: {
+        y: {
+          ticks: {
+            stepSize: 0.5,
+            font: { size: 10 }
+          }
+        },
+        x: {
+          ticks: { font: { size: 9 } }
+        }
+      }
+    }
+  });
 }
 
 function renderCategoryDoughnutChart(categoryTotals) {
@@ -759,31 +1162,6 @@ function renderCategoryDoughnutChart(categoryTotals) {
       cutout: '65%'
     }
   });
-}
-
-function setStarRating(rating) {
-  starBtns.forEach(btn => {
-    const score = parseInt(btn.dataset.score, 10);
-    btn.classList.toggle('active', score <= rating);
-  });
-  state.currentRating = rating;
-}
-
-function handleSaveReflection() {
-  const praise = inputReflectPraise.value.trim();
-  const wasted = inputReflectWasted.value.trim();
-  const action = inputReflectAction.value.trim();
-
-  state.reflections[state.currentDate] = {
-    rating: state.currentRating || 0,
-    praise,
-    wasted,
-    action,
-    updatedAt: new Date().toISOString()
-  };
-
-  saveReflections();
-  alert('🎉 今日复盘已妥善保存！持续反思是自我精进的飞轮。');
 }
 
 // Trends Tab Logic
@@ -858,6 +1236,9 @@ function renderTrendsTab() {
       }
     }
   });
+
+  // 渲染近期体重走势折线图 (v1.2.0)
+  renderWeightTrendChart();
 }
 
 // Sample Data Generator
@@ -877,14 +1258,13 @@ function loadSampleData() {
     { id: 's11', category: 'phone', start: '21:30', end: '22:15', note: '睡前不知不觉又刷了会手机' }
   ];
 
-  state.reflections[today] = {
-    rating: 4,
-    praise: '上午和晚上的深度工作状态很好，而且坚持了运动！',
-    wasted: '早起和睡前各被手机偷走了30多分钟，合计浪费了1个多小时。',
-    action: '明天睡前把手机放在书桌上，床头只放水杯和纸质书。'
-  };
+  state.plans[today] = "1. 完成时镜知行三段与体重模块架构升级\n2. 研读《黄帝内经》素问第13篇\n3. 囚徒健身力量进阶练习";
+  state.weights[today] = 65.5;
+  state.reflections[today] = "今日上午专注投入饱满，知行合流模块一次性打通。\n睡前避免看手机屏幕，明天早起先喝温水。";
 
   saveRecords();
+  savePlans();
+  saveWeights();
   saveReflections();
 }
 
@@ -894,6 +1274,8 @@ function exportData() {
     exportedAt: new Date().toISOString(),
     categories: state.categories,
     records: state.records,
+    plans: state.plans,
+    weights: state.weights,
     reflections: state.reflections
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -913,9 +1295,13 @@ function importData(e) {
     try {
       const data = JSON.parse(event.target.result);
       if (data.records) state.records = data.records;
+      if (data.plans) state.plans = data.plans;
+      if (data.weights) state.weights = data.weights;
       if (data.reflections) state.reflections = data.reflections;
       if (data.categories) state.categories = data.categories;
       saveRecords();
+      savePlans();
+      saveWeights();
       saveReflections();
       updateUI();
       alert('数据恢复成功！');
@@ -962,7 +1348,7 @@ function showToast(msg) {
   }, 2400);
 }
 
-// 2. Obsidian Nightly Log Formatter
+// 2. Obsidian Nightly Log Formatter (仅暮夜对账)
 function generateObsidianNightlyLog(dateStr) {
   const records = (state.records[dateStr] || []).slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
   if (records.length === 0) {
@@ -982,7 +1368,59 @@ function generateObsidianNightlyLog(dateStr) {
   return lines.join('\n');
 }
 
-// 3. Obsidian 一键复制
+// 2.2 完整知行三段与体重 Markdown 生成器 (直通 Obsidian 对应段落格式)
+function generateFullZhixingMarkdown(dateStr) {
+  const plan = inputDailyPlan ? inputDailyPlan.value.trim() : (state.plans[dateStr] || '');
+  const exec = generateObsidianNightlyLog(dateStr);
+  let refl = inputDailyReflection ? inputDailyReflection.value.trim() : '';
+  if (!refl && state.reflections[dateStr]) {
+    const raw = state.reflections[dateStr];
+    refl = typeof raw === 'string' ? raw : (raw.praise || raw.wasted || raw.action ? `${raw.praise}\n${raw.wasted}\n${raw.action}` : '');
+  }
+  const weight = (inputDailyWeight && inputDailyWeight.value.trim() !== '') ? inputDailyWeight.value.trim() : state.weights[dateStr];
+
+  const sections = [];
+
+  // 第一段：晨起立志 (计划)
+  sections.push('### 🎯 晨起立志（打算做什么？）');
+  sections.push('> 顺应今日身心气能，参考 [[学习项目四阶追踪表]]，每日核心要务不超过 3 件：');
+  if (plan) {
+    const lines = plan.split('\n').map(l => l.trim()).filter(Boolean);
+    lines.forEach((l, idx) => {
+      const clean = l.replace(/^(?:-\s*\[[ x]\]\s*)?(?:\d+[\.\、]\s*)?/, '').trim();
+      sections.push(`- [ ] ${idx + 1}. ${clean}`);
+    });
+  } else {
+    sections.push('- [ ] 1. \n- [ ] 2. \n- [ ] 3. ');
+  }
+  sections.push('');
+
+  // 第二段：暮夜对账 (实际执行)
+  sections.push('### ⚡ 暮夜对账（实际做了什么？）');
+  sections.push(exec);
+  sections.push('');
+
+  // 第三段：诚意慎独 (反思)
+  sections.push('### 🪞 诚意慎独（今日得失与明日调适）');
+  if (refl) {
+    const reflLines = refl.split('\n').map(l => l.trim()).filter(Boolean);
+    reflLines.forEach(l => {
+      sections.push(l.startsWith('-') ? l : `- ${l}`);
+    });
+  } else {
+    sections.push('- ');
+  }
+
+  // 身体纪事与晨起体重
+  if (weight) {
+    sections.push('');
+    sections.push(`- **晨起体重**：${weight} kg`);
+  }
+
+  return sections.join('\n');
+}
+
+// 3. Obsidian 一键复制 (暮夜对账单项)
 async function copyObsidianNightlyLog() {
   const text = generateObsidianNightlyLog(state.currentDate);
   try {
@@ -1003,18 +1441,69 @@ async function copyObsidianNightlyLog() {
   }
 }
 
-// 4. Obsidian 局域网极速直通同步 (支持 HTTPS 混合内容自动穿透)
+// 3.2 一键复制完整知行三段与体重 (全量知行合流)
+async function copyDailyZhixingMarkdown() {
+  const text = generateFullZhixingMarkdown(state.currentDate);
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    showToast('📋 已复制完整知行Markdown(计划+对账+反思+体重)！');
+  } catch (err) {
+    console.error('Copy error:', err);
+    prompt('请长按复制今日知行记录：', text);
+  }
+}
+
+// 4. Obsidian 局域网极速直通同步 (全要素直通：计划+执行+反思+体重)
 async function syncToObsidianLAN() {
   const serverInput = document.getElementById('obsidianServerUrl');
   let serverUrl = (serverInput ? serverInput.value.trim() : '') || localStorage.getItem('tm_obsidian_server') || 'http://192.168.31.51:28888';
   serverUrl = serverUrl.replace(/\/+$/, '');
   localStorage.setItem('tm_obsidian_server', serverUrl);
 
+  // 动态收拢最新的界面输入内容
+  let planText = state.plans[state.currentDate] || '';
+  if (inputDailyPlan) {
+    planText = inputDailyPlan.value.trim();
+    state.plans[state.currentDate] = planText;
+    savePlans();
+  }
+
+  let reflectionText = '';
+  if (inputDailyReflection) {
+    reflectionText = inputDailyReflection.value.trim();
+    state.reflections[state.currentDate] = reflectionText;
+    saveReflections();
+  } else {
+    reflectionText = typeof state.reflections[state.currentDate] === 'string' ? state.reflections[state.currentDate] : '';
+  }
+
+  let weightVal = state.weights[state.currentDate];
+  if (inputDailyWeight && inputDailyWeight.value.trim() !== '') {
+    const parsed = parseFloat(inputDailyWeight.value.trim());
+    if (!isNaN(parsed) && parsed > 0) {
+      weightVal = Number(parsed.toFixed(1));
+      state.weights[state.currentDate] = weightVal;
+      saveWeights();
+    }
+  }
+
   const records = (state.records[state.currentDate] || []).slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
   const formattedText = generateObsidianNightlyLog(state.currentDate);
 
   const payload = {
     date: state.currentDate,
+    planText: planText,
+    reflectionText: reflectionText,
+    weight: weightVal !== undefined ? weightVal : null,
     formattedText: formattedText,
     records: records.map(r => {
       const cat = state.categories.find(c => c.id === r.category) || { name: '日常' };
@@ -1066,7 +1555,7 @@ async function syncToObsidianLAN() {
         statusBadge.style.background = '#D1FAE5';
         statusBadge.style.color = '#059669';
       }
-      showToast('🚀 已成功写入电脑 Obsidian 每日日志！');
+      showToast('🚀 已成功直通写入电脑 Obsidian 知行日记！');
     } else {
       throw new Error(data.message || '服务端写入异常');
     }

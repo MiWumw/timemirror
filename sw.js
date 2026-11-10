@@ -1,5 +1,5 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v12-form';
+const CACHE_NAME = 'timemirror-v120-zhixing';
 const ASSETS = [
   './',
   './index.html',
