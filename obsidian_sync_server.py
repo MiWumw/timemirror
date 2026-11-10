@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-时镜 · Obsidian 局域网极速直通同步服务 (TimeMirror Obsidian Sync Bridge)
-极轻量后台服务：内存占用 < 10MB，平时 CPU 为 0%，接收手机打卡数据并秒级自动写入每日知行日志。
+《时镜 TimeMirror》· Obsidian 局域网极速直通同步服务 (带 Windows 托盘图标)
+- 仿照 WindSend，常驻任务栏右下角向上箭头角标
+- 内存占用仅 8~12MB，平时休眠 CPU 0%
+- 点击托盘小图标可随时查看状态、打开日志目录或一键退出释放内存
+- 支持右键菜单一键勾选/取消【开机自动启动】
 """
 
 import os
@@ -10,20 +13,32 @@ import sys
 import json
 import re
 import socket
+import threading
+import webbrowser
+import subprocess
 from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# 默认配置
+# 依赖库
+from PIL import Image
+import pystray
+from pystray import MenuItem as item, Menu
+
+# 核心配置
 VAULT_ROOT = r"D:\cangku\浮生"
 DIARY_SUBDIR = r"04_知行生活\身心纪事"
 TEMPLATE_PATH = os.path.join(VAULT_ROOT, DIARY_SUBDIR, "_每日终极知行模板.md")
 PORT = 28888
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ICON_PATH = os.path.join(BASE_DIR, "icon-192.png")
+TIMEMIRROR_WEB_URL = "https://miwumw.github.io/timemirror/"
+
+httpd_server = None
 
 def get_lan_ip():
     """获取本机 Wi-Fi/局域网真实 IP (优先匹配 192.168.x.x)"""
     try:
         ips = socket.gethostbyname_ex(socket.gethostname())[2]
-        # 优先选取标准的局域网私网 IP
         for ip in ips:
             if ip.startswith("192.168.") or ip.startswith("10.") or ip.startswith("172.16."):
                 return ip
@@ -46,7 +61,6 @@ def write_to_obsidian(date_str, formatted_text, records=None):
         else:
             content = f"# 📅 {date_str} 每日知行日志\n\n### 🎯 晨起立志\n- [ ] 1. \n\n### ⚡ 暮夜对账（实际做了什么？）\n\n### 🪞 诚意慎独\n"
 
-        # 插入对账内容
         section_pattern = r"(###\s*⚡\s*暮夜对账[^\n]*\n)"
         if re.search(section_pattern, content):
             replacement = r"\1" + formatted_text.strip() + "\n\n"
@@ -58,23 +72,20 @@ def write_to_obsidian(date_str, formatted_text, records=None):
             f.write(content)
         return True, f"已根据模板新建今日日志并写入：{date_str}_每日知行日志.md"
 
-    # 2. 文件已存在，精确替换或更新对账段落
+    # 2. 文件已存在，精确替换对账段落（多次写入绝不重复累加）
     with open(target_file, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # 匹配从 ### ⚡ 暮夜对账 开始，直到下一个 --- 或 ### 标题之间的区域
     pattern = r"(###\s*⚡\s*暮夜对账[^\n]*\n)([\s\S]*?)(?=\n---|###|\Z)"
     match = re.search(pattern, content)
 
     if match:
-        new_section = match.group(1) + formatted_text.strip() + "\n"
+        new_section = match.group(1) + formatted_text.strip() + "\n\n"
         content = content[:match.start()] + new_section + content[match.end():]
     else:
-        # 找不到对应标题，插入到第一部分之后
         insert_marker = "### 🎯 晨起立志"
         if insert_marker in content:
             pos = content.find(insert_marker)
-            # 找到晨起立志下一段
             next_heading = content.find("###", pos + len(insert_marker))
             if next_heading != -1:
                 content = content[:next_heading] + f"### ⚡ 暮夜对账（实际做了什么？）\n{formatted_text.strip()}\n\n" + content[next_heading:]
@@ -86,7 +97,7 @@ def write_to_obsidian(date_str, formatted_text, records=None):
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(content)
 
-    return True, f"已成功更新 {date_str}_每日知行日志.md 的暮夜对账内容"
+    return True, f"已成功刷新 {date_str}_每日知行日志.md 的暮夜对账"
 
 class SyncHandler(BaseHTTPRequestHandler):
     def _send_cors(self):
@@ -136,12 +147,11 @@ class SyncHandler(BaseHTTPRequestHandler):
                 records = data.get("records", [])
 
                 if not formatted_text and records:
-                    # 备用：从 records 自动组装
                     lines = []
                     for r in records:
                         cat_name = r.get("categoryName") or r.get("category") or "日常"
                         note = r.get("note", "").strip()
-                        line = f"- **{r.get('start')} - {r.get('end')}**：【{cat_name}】{note if note else '已完成'}"
+                        line = f"- **{r.get('start')} - {r.get('end')}**：【{cat_name}】{note if note else '完成'}"
                         lines.append(line)
                     formatted_text = "\n".join(lines)
 
@@ -164,24 +174,92 @@ class SyncHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def log_message(self, format, *args):
-        # 仅输出关键提示，不产生刷屏噪音
-        sys.stdout.write(f"[{datetime.now().strftime('%H:%M:%S')}] {args[0]}\n")
+        pass  # 托盘静默运行，无需控制台输出
 
-def run():
-    ip = get_lan_ip()
-    print("=" * 60)
-    print("✨ 《时镜》· Obsidian 局域网极速直通同步服务已启动")
-    print(f"📡 局域网直通地址: http://{ip}:{PORT}")
-    print(f"📂 关联 Obsidian 仓库: {VAULT_ROOT}")
-    print(f"📝 目标知行日志路径: {os.path.join(VAULT_ROOT, DIARY_SUBDIR)}")
-    print("💡 手机连接同一 Wi-Fi 时，可在《时镜》中一键秒级写入当天的【暮夜对账】！")
-    print("=" * 60)
+# 开机自启管理
+def get_startup_lnk_path():
+    appdata = os.getenv("APPDATA")
+    if not appdata:
+        return ""
+    return os.path.join(appdata, r"Microsoft\Windows\Start Menu\Programs\Startup", "时镜Obsidian同步服务.lnk")
+
+def is_startup_enabled():
+    path = get_startup_lnk_path()
+    return os.path.exists(path) if path else False
+
+def toggle_startup(icon, item):
+    lnk = get_startup_lnk_path()
+    if not lnk:
+        return
+    if is_startup_enabled():
+        try:
+            os.remove(lnk)
+        except Exception:
+            pass
+    else:
+        # 创建 Windows 快捷方式 (调用 pythonw 静默自启)
+        py_dir = os.path.dirname(sys.executable)
+        pyw = os.path.join(py_dir, "pythonw.exe")
+        target_exe = pyw if os.path.exists(pyw) else sys.executable
+        script = os.path.abspath(__file__)
+        work_dir = os.path.dirname(script)
+        cmd = f'$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut("{lnk}"); $s.TargetPath = "{target_exe}"; $s.Arguments = "`"{script}`""; $s.WorkingDirectory = "{work_dir}"; $s.Save()'
+        subprocess.run(["powershell", "-NoProfile", "-Command", cmd], capture_output=True)
+
+# 菜单操作
+def on_open_web(icon, item):
+    webbrowser.open(TIMEMIRROR_WEB_URL)
+
+def on_open_diary_dir(icon, item):
+    diary_dir = os.path.join(VAULT_ROOT, DIARY_SUBDIR)
+    if os.path.exists(diary_dir):
+        os.startfile(diary_dir)
+
+def on_exit(icon, item):
+    icon.stop()
+    if httpd_server:
+        threading.Thread(target=httpd_server.shutdown).start()
+    sys.exit(0)
+
+def start_http_server():
+    global httpd_server
     server_address = ("0.0.0.0", PORT)
-    httpd = HTTPServer(server_address, SyncHandler)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n服务已平稳关闭。")
+    httpd_server = HTTPServer(server_address, SyncHandler)
+    httpd_server.serve_forever()
+
+def main():
+    # 1. 启动轻量 HTTP 监听线程
+    server_thread = threading.Thread(target=start_http_server, daemon=True)
+    server_thread.start()
+
+    lan_ip = get_lan_ip()
+
+    # 2. 加载图标 (使用时镜自己的 192x192 图标)
+    if os.path.exists(ICON_PATH):
+        image = Image.open(ICON_PATH)
+    else:
+        # 兜底生成纯色方块图标
+        image = Image.new("RGB", (64, 64), color=(79, 70, 229))
+
+    # 3. 创建托盘菜单
+    menu = Menu(
+        item(f"🪞 时镜同步服务 (运行中: {lan_ip}:{PORT})", lambda icon, item: None, enabled=False),
+        Menu.SEPARATOR,
+        item("🌐 打开《时镜》网页 (手机/电脑)", on_open_web),
+        item("📂 打开 Obsidian 知行日志目录", on_open_diary_dir),
+        item("☑️ 开机自动启动", toggle_startup, checked=lambda item: is_startup_enabled()),
+        Menu.SEPARATOR,
+        item("❌ 退出并关闭服务 (释放内存)", on_exit)
+    )
+
+    # 4. 运行系统托盘
+    icon = pystray.Icon(
+        "TimeMirrorSync",
+        image,
+        f"《时镜》Obsidian 直通服务 (地址: {lan_ip}:{PORT})",
+        menu
+    )
+    icon.run()
 
 if __name__ == "__main__":
-    run()
+    main()
