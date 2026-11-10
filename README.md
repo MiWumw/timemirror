@@ -5,11 +5,13 @@
 
 ---
 
-## 🤖 【AI 协作上下文速查】(AI Context Guide - 必读)
+## 🤖 【AI 协作上下文与跨会话枢纽】(AI Context & Living Hub - 必读)
 
 > [!IMPORTANT]
 > **新对话 AI 开发者请先阅读本节**：  
 > 本项目由用户与 AI 协同迭代开发。为了保证后续不同会话的 AI 能无缝接力、看懂系统现状，请牢记以下系统关键信息：
+> - 核心智能体规则：详见 [`AGENTS.md`](./AGENTS.md)（新对话自动注入，包含 AI 开发者行为准则与自主演进协议）。
+> - 活态协同枢纽：详见 [`CONTEXT_HUB.md`](./CONTEXT_HUB.md)（记录最新里程碑、双仓协同拓扑与运行状态）。
 
 1. **项目物理根目录**：`D:\fzl\fs\timemirror`（可通过软链接 `D:\fs\timemirror` 访问）。
 2. **关联的 Obsidian 个人知识库**：
@@ -20,15 +22,15 @@
 3. **云端托管与在线访问**：
    - GitHub 远程仓库：`https://github.com/MiWumw/timemirror.git`（分支：`main`）
    - GitHub Pages 线上地址：`https://miwumw.github.io/timemirror/`
-   - 本地 Git 提交方式：直接在 `D:\fzl\fs\timemirror` 目录下执行 `git add .`、`git commit`、`git push origin main` 即可自动部署。
+   - **重大验证成果**：手机在 GitHub Pages 线上地址点击【🚀 局域网直通写入】，已**完全验证 100% 成功、轻松写入电脑本地 Obsidian 的《每日知行日志》**！用户已确认体验非常顺畅，严禁随意变动底层网络协议。
 4. **本地局域网桥梁服务**：
    - 脚本：`obsidian_sync_server.py`
    - 默认端口：`28888`
    - 托盘控制：采用 `pystray` + `pythonw.exe` 静默常驻 Windows 任务栏系统托盘，开机自启配置在 Windows `Startup` 目录。
 5. **用户核心硬件与网络环境**：
-   - 移动端：红米手机（Redmi Note 9），通过 Via 浏览器添加到主屏幕以独立 PWA 运行。
-   - 电脑端：常开 Clash Verge（TUN 虚拟网卡模式），搭配手机与电脑互通工具 **WindSend**。
-   - 对账操作偏好：在时镜中点击 **【📋 一键复制暮夜对账】** 配合 WindSend 或手机直接粘贴；室内局域网支持内网直通写入。
+   - 移动端：红米手机（Redmi Note 9），通过浏览器添加到主屏幕以独立 PWA 运行。
+   - 电脑端：常开 Clash Verge（TUN 虚拟网卡模式，已允许 LAN 局域网连接）。
+   - 对账操作方式：手机点击【🚀 局域网直通写入】秒级入库；离开局域网时亦可点击【📋 一键复制暮夜对账】。
 6. **当前版本状态**：`v1.1.0 · 知行合流版`（详见 `CHANGELOG.md`）。
 
 ---
