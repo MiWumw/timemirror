@@ -336,10 +336,10 @@ function initEventListeners() {
     });
   }
 
-  // 防误丢历史快照保险箱
-  if (btnOpenHistorySnapshots) {
-    btnOpenHistorySnapshots.addEventListener('click', openSnapshotsModal);
-  }
+  // 防误丢历史快照保险箱 (计划与反思均可一键打开)
+  document.querySelectorAll('.btn-open-history-snapshots, #btnOpenHistorySnapshots').forEach(btn => {
+    btn.addEventListener('click', openSnapshotsModal);
+  });
   if (snapshotsCloseBtn) {
     snapshotsCloseBtn.addEventListener('click', closeSnapshotsModal);
   }
