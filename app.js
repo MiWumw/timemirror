@@ -285,6 +285,11 @@ function initEventListeners() {
     btnSaveWeightOnly.addEventListener('click', () => handleSaveWeightOnly(true));
   }
 
+  // 体重输入框实时输入防抖保存
+  if (inputDailyWeight) {
+    inputDailyWeight.addEventListener('input', handleWeightInput);
+  }
+
   // 体重走势折叠抽屉切换
   if (btnToggleWeightTrend && weightTrendDrawer) {
     btnToggleWeightTrend.addEventListener('click', () => {
@@ -293,6 +298,11 @@ function initEventListeners() {
       btnToggleWeightTrend.innerHTML = isHidden ? '<span>✕ 收起走势</span>' : '<span>📈 近期走势</span>';
       if (isHidden) renderWeightInlineChart();
     });
+  }
+
+  // 计划输入框实时输入自动持久化
+  if (inputDailyPlan) {
+    inputDailyPlan.addEventListener('input', handlePlanInput);
   }
 
   // 计划模板插入与清空
@@ -304,6 +314,7 @@ function initEventListeners() {
       } else {
         inputDailyPlan.value = current + '\n' + (current.split('\n').length + 1) + '. ';
       }
+      handlePlanInput();
       inputDailyPlan.focus();
     });
   }
@@ -313,10 +324,22 @@ function initEventListeners() {
         inputDailyPlan.value = '';
         state.plans[state.currentDate] = '';
         savePlans();
+        autoResizeTextarea(inputDailyPlan);
         showToast('已清空今日计划');
       }
     });
   }
+
+  // 反思输入框实时输入自动持久化
+  if (inputDailyReflection) {
+    inputDailyReflection.addEventListener('input', handleReflectionInput);
+  }
+
+  // 页面离开/切换应用时的双保险即时保存
+  window.addEventListener('beforeunload', flushZhixingDrafts);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushZhixingDrafts();
+  });
 
   // 补录时间快捷跳转
   if (btnGoTimelineAdd) {
@@ -868,10 +891,99 @@ function handleSaveWeightOnly(showToastNotice = true) {
   }
 }
 
+// 自动调整多行输入框高度 (随内容动态撑开，不再拘谨)
+function autoResizeTextarea(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  const minH = el.classList.contains('large') ? 190 : 130;
+  el.style.height = Math.max(el.scrollHeight, minH) + 'px';
+}
+
+// 页面退出/切出前强制刷盘
+function flushZhixingDrafts() {
+  if (inputDailyPlan) {
+    state.plans[state.currentDate] = inputDailyPlan.value;
+  }
+  if (inputDailyReflection) {
+    state.reflections[state.currentDate] = inputDailyReflection.value;
+  }
+  if (inputDailyWeight && inputDailyWeight.value.trim() !== '') {
+    const num = parseFloat(inputDailyWeight.value.trim());
+    if (!isNaN(num) && num > 0) state.weights[state.currentDate] = Number(num.toFixed(1));
+  }
+  savePlans();
+  saveReflections();
+  saveWeights();
+}
+
+// 计划实时自动保存防抖处理
+let planSaveTimer = null;
+function handlePlanInput() {
+  if (!inputDailyPlan) return;
+  const val = inputDailyPlan.value;
+  state.plans[state.currentDate] = val;
+  autoResizeTextarea(inputDailyPlan);
+
+  const tag = document.getElementById('planAutoSaveTag');
+  if (tag) {
+    tag.className = 'auto-save-tag saving';
+    tag.textContent = '💾 保存中...';
+  }
+
+  clearTimeout(planSaveTimer);
+  planSaveTimer = setTimeout(() => {
+    savePlans();
+    if (tag) {
+      tag.className = 'auto-save-tag';
+      tag.textContent = '🟢 实时已存';
+    }
+  }, 200);
+}
+
+// 反思实时自动保存防抖处理
+let reflSaveTimer = null;
+function handleReflectionInput() {
+  if (!inputDailyReflection) return;
+  const val = inputDailyReflection.value;
+  state.reflections[state.currentDate] = val;
+  autoResizeTextarea(inputDailyReflection);
+
+  const tag = document.getElementById('reflAutoSaveTag');
+  if (tag) {
+    tag.className = 'auto-save-tag saving';
+    tag.textContent = '💾 保存中...';
+  }
+
+  clearTimeout(reflSaveTimer);
+  reflSaveTimer = setTimeout(() => {
+    saveReflections();
+    if (tag) {
+      tag.className = 'auto-save-tag';
+      tag.textContent = '🟢 实时已存';
+    }
+  }, 200);
+}
+
+// 体重实时输入防抖处理
+let weightInputTimer = null;
+function handleWeightInput() {
+  if (!inputDailyWeight) return;
+  clearTimeout(weightInputTimer);
+  weightInputTimer = setTimeout(() => {
+    handleSaveWeightOnly(false);
+  }, 350);
+}
+
 // 2. 第一段：今日计划 (晨起立志) 渲染
 function renderDailyPlanSection() {
   if (!inputDailyPlan) return;
   inputDailyPlan.value = state.plans[state.currentDate] || '';
+  autoResizeTextarea(inputDailyPlan);
+  const tag = document.getElementById('planAutoSaveTag');
+  if (tag) {
+    tag.className = 'auto-save-tag';
+    tag.textContent = '🟢 实时已存';
+  }
 }
 
 // 3. 第二段：实际执行 (暮夜对账) 动态流渲染
@@ -937,11 +1049,8 @@ function renderDailyReflectionSection() {
   const raw = state.reflections[state.currentDate];
   if (!raw) {
     inputDailyReflection.value = '';
-    return;
-  }
-
-  // 平滑兼容旧版本 3 个问答格式的数据对象
-  if (typeof raw === 'object' && raw !== null) {
+  } else if (typeof raw === 'object' && raw !== null) {
+    // 平滑兼容旧版本 3 个问答格式的数据对象
     const parts = [];
     if (raw.praise) parts.push(`【专注投入】${raw.praise}`);
     if (raw.wasted) parts.push(`【时间黑洞】${raw.wasted}`);
@@ -949,6 +1058,12 @@ function renderDailyReflectionSection() {
     inputDailyReflection.value = parts.join('\n');
   } else {
     inputDailyReflection.value = String(raw);
+  }
+  autoResizeTextarea(inputDailyReflection);
+  const tag = document.getElementById('reflAutoSaveTag');
+  if (tag) {
+    tag.className = 'auto-save-tag';
+    tag.textContent = '🟢 实时已存';
   }
 }
 

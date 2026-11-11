@@ -1274,6 +1274,26 @@ body {
   gap: 8px;
 }
 
+.auto-save-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #059669;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.2s ease;
+}
+
+.auto-save-tag.saving {
+  color: #D97706;
+  background: #FEF3C7;
+  border-color: #FDE68A;
+}
+
 .zhixing-desc {
   font-size: 0.75rem;
   color: var(--text-muted);
