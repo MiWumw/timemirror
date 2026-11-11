@@ -1,4 +1,4 @@
-# 🪞 《时镜 TimeMirror》
+﻿# 🪞 《时镜 TimeMirror》
 
 > **24 小时时间图谱、反摸鱼觉察与知行合流复盘应用**  
 > *基于 Local-First 本地优先架构 · 专为手机 PWA 体验与 Obsidian 知行体系深度打造*
@@ -13,7 +13,7 @@
 > - 核心智能体规则：详见 [`AGENTS.md`](./AGENTS.md)（新对话自动注入，包含 AI 开发者行为准则与自主演进协议）。
 > - 活态协同枢纽：详见 [`CONTEXT_HUB.md`](./CONTEXT_HUB.md)（记录最新里程碑、双仓协同拓扑与运行状态）。
 
-1. **项目物理根目录**：`D:\fzl\fs\timemirror`（可通过软链接 `D:\fs\timemirror` 访问）。
+1. **项目物理根目录**：`D:\fzl\fs\timemirror`（可通过软链接 `d:\fzl\fs\timemirror` 访问）。
 2. **关联的 Obsidian 个人知识库**：
    - 仓库路径：`D:\cangku\浮生`
    - 日记保存目录：`D:\cangku\浮生\04_知行生活\身心纪事\`

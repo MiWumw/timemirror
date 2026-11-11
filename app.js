@@ -170,7 +170,6 @@ const btnSaveWeightOnly = document.getElementById('btnSaveWeightOnly');
 
 const inputDailyPlan = document.getElementById('inputDailyPlan');
 const btnInsertPlanTemplate = document.getElementById('btnInsertPlanTemplate');
-const btnClearPlan = document.getElementById('btnClearPlan');
 
 const execStreamSummary = document.getElementById('execStreamSummary');
 const btnGoTimelineAdd = document.getElementById('btnGoTimelineAdd');
@@ -181,7 +180,13 @@ const blackHoleAlert = document.getElementById('blackHoleAlert');
 const blackHoleSummary = document.getElementById('blackHoleSummary');
 
 const inputDailyReflection = document.getElementById('inputDailyReflection');
-const btnClearReflection = document.getElementById('btnClearReflection');
+const btnOpenHistorySnapshots = document.getElementById('btnOpenHistorySnapshots');
+const snapshotsModal = document.getElementById('snapshotsModal');
+const snapshotsCloseBtn = document.getElementById('snapshotsCloseBtn');
+const snapshotsListContainer = document.getElementById('snapshotsListContainer');
+const reviewNotTodayBanner = document.getElementById('reviewNotTodayBanner');
+const reviewViewingDateText = document.getElementById('reviewViewingDateText');
+const btnBackToTodayInReview = document.getElementById('btnBackToTodayInReview');
 
 const btnSaveDailyZhixing = document.getElementById('btnSaveDailyZhixing');
 const btnSyncObsidianInReview = document.getElementById('btnSyncObsidianInReview');
@@ -195,6 +200,10 @@ document.addEventListener('DOMContentLoaded', () => {
   if (Object.keys(state.records).length === 0) {
     loadSampleData();
   }
+  // 首次载入即时同步填入草稿，防止 DOM 滞后与意外空值冲刷
+  renderDailyPlanSection();
+  renderDailyReflectionSection();
+  renderDailyWeightSection();
   updateUI();
   registerServiceWorker();
 });
@@ -305,7 +314,7 @@ function initEventListeners() {
     inputDailyPlan.addEventListener('input', handlePlanInput);
   }
 
-  // 计划模板插入与清空
+  // 计划模板插入
   if (btnInsertPlanTemplate && inputDailyPlan) {
     btnInsertPlanTemplate.addEventListener('click', () => {
       const current = inputDailyPlan.value.trim();
@@ -318,15 +327,25 @@ function initEventListeners() {
       inputDailyPlan.focus();
     });
   }
-  if (btnClearPlan && inputDailyPlan) {
-    btnClearPlan.addEventListener('click', () => {
-      if (confirm('确定清空今日计划内容吗？')) {
-        inputDailyPlan.value = '';
-        state.plans[state.currentDate] = '';
-        savePlans();
-        autoResizeTextarea(inputDailyPlan);
-        showToast('已清空今日计划');
-      }
+
+  // 跨天友好提示回到今天
+  if (btnBackToTodayInReview) {
+    btnBackToTodayInReview.addEventListener('click', () => {
+      state.currentDate = getTodayString();
+      updateUI();
+    });
+  }
+
+  // 防误丢历史快照保险箱
+  if (btnOpenHistorySnapshots) {
+    btnOpenHistorySnapshots.addEventListener('click', openSnapshotsModal);
+  }
+  if (snapshotsCloseBtn) {
+    snapshotsCloseBtn.addEventListener('click', closeSnapshotsModal);
+  }
+  if (snapshotsModal) {
+    snapshotsModal.addEventListener('click', (e) => {
+      if (e.target === snapshotsModal) closeSnapshotsModal();
     });
   }
 
@@ -356,18 +375,6 @@ function initEventListeners() {
       chartDetailsDrawer.style.display = isHidden ? 'block' : 'none';
       if (toggleChartLabel) {
         toggleChartLabel.textContent = isHidden ? '📊 收起时间饼图与分析 ▴' : '📊 展开时间饼图与摸鱼深度分析 ▾';
-      }
-    });
-  }
-
-  // 反思清空
-  if (btnClearReflection && inputDailyReflection) {
-    btnClearReflection.addEventListener('click', () => {
-      if (confirm('确定清空今日复盘反思吗？')) {
-        inputDailyReflection.value = '';
-        state.reflections[state.currentDate] = '';
-        saveReflections();
-        showToast('已清空今日反思');
       }
     });
   }
@@ -450,6 +457,9 @@ function initEventListeners() {
 }
 
 function changeDate(daysDelta) {
+  if (state.activeTab === 'review') {
+    flushZhixingDrafts();
+  }
   const [y, m, d] = state.currentDate.split('-').map(Number);
   const dateObj = new Date(y, m - 1, d);
   dateObj.setDate(dateObj.getDate() + daysDelta);
@@ -798,6 +808,9 @@ function deleteRecord(recordId) {
 
 // Tabs Switch
 function switchTab(tabName) {
+  if (state.activeTab === 'review' && tabName !== 'review') {
+    flushZhixingDrafts();
+  }
   state.activeTab = tabName;
   navItems.forEach(item => {
     item.classList.toggle('active', item.dataset.tab === tabName);
@@ -827,6 +840,17 @@ function getMostRecentWeight() {
 
 // Review Tab Controller
 function renderReviewTab() {
+  // 跨天/非今日浏览友好提示 (防止用户切错日期误以为数据丢失)
+  const isToday = state.currentDate === getTodayString();
+  if (reviewNotTodayBanner) {
+    if (!isToday) {
+      reviewNotTodayBanner.style.display = 'flex';
+      if (reviewViewingDateText) reviewViewingDateText.textContent = state.currentDate;
+    } else {
+      reviewNotTodayBanner.style.display = 'none';
+    }
+  }
+
   renderDailyWeightSection();
   renderDailyPlanSection();
   renderDailyExecutionSection();
@@ -899,13 +923,191 @@ function autoResizeTextarea(el) {
   el.style.height = Math.max(el.scrollHeight, minH) + 'px';
 }
 
-// 页面退出/切出前强制刷盘
+// ==========================================
+// 知行草稿快照保险箱 (防误丢与历史找回)
+// ==========================================
+const SNAPSHOTS_STORAGE_KEY = 'tm_zhixing_snapshots';
+
+function loadZhixingSnapshots() {
+  try {
+    const raw = localStorage.getItem(SNAPSHOTS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveZhixingSnapshot(type, text) {
+  if (!text || text.trim().length < 2) return;
+  const snapshots = loadZhixingSnapshots();
+  const trimmed = text.trim();
+
+  // 若最新一条快照类型、日期相同且内容完全一致，无需重复记录
+  if (snapshots.length > 0) {
+    const latest = snapshots[0];
+    if (latest.date === state.currentDate && latest.type === type && latest.text === trimmed) {
+      return;
+    }
+    // 60 秒内的连续打字微调，直接平滑更新最新一条
+    if (latest.date === state.currentDate && latest.type === type && (Date.now() - latest.timestamp < 60000)) {
+      latest.text = trimmed;
+      latest.timestamp = Date.now();
+      latest.timeStr = formatSnapshotTime(new Date());
+      latest.charCount = trimmed.length;
+      try {
+        localStorage.setItem(SNAPSHOTS_STORAGE_KEY, JSON.stringify(snapshots));
+      } catch (e) {}
+      return;
+    }
+  }
+
+  const now = new Date();
+  const newSnap = {
+    id: 'snap_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    timestamp: Date.now(),
+    date: state.currentDate,
+    timeStr: formatSnapshotTime(now),
+    type: type, // 'plan' | 'reflection'
+    text: trimmed,
+    charCount: trimmed.length
+  };
+
+  snapshots.unshift(newSnap);
+  if (snapshots.length > 40) {
+    snapshots.length = 40;
+  }
+
+  try {
+    localStorage.setItem(SNAPSHOTS_STORAGE_KEY, JSON.stringify(snapshots));
+  } catch (e) {}
+}
+
+function formatSnapshotTime(d) {
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  const s = String(d.getSeconds()).padStart(2, '0');
+  return `${m}-${day} ${h}:${min}:${s}`;
+}
+
+function openSnapshotsModal() {
+  if (!snapshotsModal) return;
+  renderSnapshotsList();
+  snapshotsModal.classList.add('open');
+}
+
+function closeSnapshotsModal() {
+  if (!snapshotsModal) return;
+  snapshotsModal.classList.remove('open');
+}
+
+function renderSnapshotsList() {
+  if (!snapshotsListContainer) return;
+  const snapshots = loadZhixingSnapshots();
+  if (snapshots.length === 0) {
+    snapshotsListContainer.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); padding: 30px 10px; font-size: 0.85rem;">
+        🌱 暂无历史快照记录。<br>
+        当您在【晨起立志·计划】或【复盘反思·诚意慎独】中输入文字时，系统会自动在本地生成防丢快照。
+      </div>
+    `;
+    return;
+  }
+
+  snapshotsListContainer.innerHTML = '';
+  snapshots.forEach((snap, idx) => {
+    const item = document.createElement('div');
+    item.className = 'snapshot-card-item';
+    item.style.cssText = `
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    `;
+
+    const isPlan = snap.type === 'plan';
+    const typeLabel = isPlan ? '🎯 晨起计划' : '🪞 复盘反思';
+    const typeBadgeColor = isPlan
+      ? 'background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;'
+      : 'background: #FAF5FF; color: #7E22CE; border: 1px solid #E9D5FF;';
+
+    item.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; ${typeBadgeColor}">
+            ${typeLabel}
+          </span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">
+            ${snap.timeStr} (${snap.date})
+          </span>
+        </div>
+        <span style="font-size: 0.72rem; color: var(--text-muted);">
+          ${snap.charCount} 字
+        </span>
+      </div>
+      <div style="font-size: 0.82rem; color: var(--text-primary); white-space: pre-wrap; max-height: 80px; overflow-y: auto; background: var(--bg-hover); padding: 6px 8px; border-radius: 4px; line-height: 1.4;">
+        ${escapeHtml(snap.text)}
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+        <button type="button" class="zhixing-tool-btn btn-restore-snap" data-idx="${idx}" style="background: #2563EB; color: #ffffff; border: none; font-weight: 600; padding: 4px 10px;">
+          ↺ 恢复此条到输入框
+        </button>
+      </div>
+    `;
+
+    snapshotsListContainer.appendChild(item);
+  });
+
+  // 绑定恢复按钮事件
+  snapshotsListContainer.querySelectorAll('.btn-restore-snap').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx, 10);
+      const targetSnap = snapshots[idx];
+      if (!targetSnap) return;
+
+      const typeName = targetSnap.type === 'plan' ? '【今日计划】' : '【复盘反思】';
+      if (confirm(`确定将这条 ${targetSnap.timeStr} 的 ${typeName} 快照内容恢复到当前日期的输入框吗？\n当前已存在的内容将被替换。`)) {
+        if (targetSnap.type === 'plan') {
+          if (inputDailyPlan) {
+            inputDailyPlan.value = targetSnap.text;
+            autoResizeTextarea(inputDailyPlan);
+          }
+          state.plans[state.currentDate] = targetSnap.text;
+          savePlans();
+        } else {
+          if (inputDailyReflection) {
+            inputDailyReflection.value = targetSnap.text;
+            autoResizeTextarea(inputDailyReflection);
+          }
+          state.reflections[state.currentDate] = targetSnap.text;
+          saveReflections();
+        }
+        closeSnapshotsModal();
+        showToast(`✅ 已成功恢复 ${typeName} 历史快照！`);
+      }
+    });
+  });
+}
+
+// 页面退出/切出前强制刷盘 (严密防御性保护，拒绝空值抹除已有数据)
 function flushZhixingDrafts() {
+  if (state.activeTab !== 'review') return;
+
   if (inputDailyPlan) {
-    state.plans[state.currentDate] = inputDailyPlan.value;
+    const pVal = inputDailyPlan.value;
+    if (pVal || !state.plans[state.currentDate]) {
+      state.plans[state.currentDate] = pVal;
+    }
   }
   if (inputDailyReflection) {
-    state.reflections[state.currentDate] = inputDailyReflection.value;
+    const rVal = inputDailyReflection.value;
+    if (rVal || !state.reflections[state.currentDate]) {
+      state.reflections[state.currentDate] = rVal;
+    }
   }
   if (inputDailyWeight && inputDailyWeight.value.trim() !== '') {
     const num = parseFloat(inputDailyWeight.value.trim());
@@ -933,6 +1135,7 @@ function handlePlanInput() {
   clearTimeout(planSaveTimer);
   planSaveTimer = setTimeout(() => {
     savePlans();
+    saveZhixingSnapshot('plan', val);
     if (tag) {
       tag.className = 'auto-save-tag';
       tag.textContent = '🟢 实时已存';
@@ -957,6 +1160,7 @@ function handleReflectionInput() {
   clearTimeout(reflSaveTimer);
   reflSaveTimer = setTimeout(() => {
     saveReflections();
+    saveZhixingSnapshot('reflection', val);
     if (tag) {
       tag.className = 'auto-save-tag';
       tag.textContent = '🟢 实时已存';

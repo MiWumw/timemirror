@@ -1,15 +1,15 @@
-# 多应用生态与架构演进蓝图 (App Suite Architecture Blueprint)
+﻿# 多应用生态与架构演进蓝图 (App Suite Architecture Blueprint)
 
-本文档规划了 `D:\fs` 工作空间的多应用组织架构、版本管理体系、跨平台演进路径与多应用融合方案。
+本文档规划了 `d:\fzl\fs` 工作空间的多应用组织架构、版本管理体系、跨平台演进路径与多应用融合方案。
 
 ---
 
 ## 一、 工作空间目录规范
 
-为了防止多应用开发时根目录杂乱，`D:\fs` 统一采用**应用独立模块化目录结构**：
+为了防止多应用开发时根目录杂乱，`d:\fzl\fs` 统一采用**应用独立模块化目录结构**：
 
 ```text
-D:\fs\
+d:\fzl\fs\
 ├── timemirror\                  # 【应用 1】《时镜 TimeMirror》24h时间图谱与自我反思 APP
 │   ├── index.html               # 核心界面
 │   ├── app.js                   # 状态流转与 StorageAdapter 数据层

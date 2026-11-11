@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.2.0 · 知行三段版</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.2.3 · 快照防丢版</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -114,6 +114,12 @@
 
     <!-- TAB 2: 今日知行与复盘 (Daily Plan, Execution & Reflection) -->
     <section id="tab-review" class="tab-pane tab-content" style="display: none;">
+      <!-- 跨天/非今日浏览友好提示 (防止用户切错日期误以为数据丢失) -->
+      <div id="reviewNotTodayBanner" style="display: none; background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E; padding: 8px 12px; border-radius: var(--radius-md); font-size: 0.78rem; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+        <span>📅 当前正在查看 <b id="reviewViewingDateText"></b> 的知行记录</span>
+        <button type="button" id="btnBackToTodayInReview" class="zhixing-tool-btn" style="background:#FFFFFF; color:#92400E; border-color:#FCD34D; font-weight: 700;">回到今天 ➜</button>
+      </div>
+
       <!-- 晨起体重卡片 -->
       <div class="weight-card">
         <div class="weight-header">
@@ -154,7 +160,6 @@
           </div>
           <div class="zhixing-actions">
             <button type="button" id="btnInsertPlanTemplate" class="zhixing-tool-btn">⚡ 1.2.3.模板</button>
-            <button type="button" id="btnClearPlan" class="zhixing-tool-btn">清空</button>
           </div>
         </div>
         <div class="zhixing-desc">
@@ -194,7 +199,7 @@
         </div>
       </div>
 
-      <!-- 第三段：复盘反思 · 诚意慎独 -->
+      <!-- 第三段：复盘反思 · 诚意慎独 (移除误触清空，加入防丢历史快照) -->
       <div class="zhixing-card">
         <div class="zhixing-card-header">
           <div class="zhixing-title">
@@ -202,7 +207,7 @@
             <span id="reflAutoSaveTag" class="auto-save-tag">🟢 实时已存</span>
           </div>
           <div class="zhixing-actions">
-            <button type="button" id="btnClearReflection" class="zhixing-tool-btn">清空</button>
+            <button type="button" id="btnOpenHistorySnapshots" class="zhixing-tool-btn" title="查看最近编辑过的历史版本快照，支持一键找回">📜 历史版本/找回</button>
           </div>
         </div>
         <div class="zhixing-desc">
@@ -299,8 +304,8 @@
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #F1F5F9; padding: 10px 12px; border-radius: var(--radius-md);">
           <div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.2.0 (知行合流三段与身心体态版)</div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261110 · 晨起立志+暮夜对账+诚意慎独整屏三段 + 每日体重追踪</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.2.3 (知行防丢快照保险箱版)</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261111 · 计划反思草稿深度防丢 + 移除误清空 + 历史版本快照找回</div>
           </div>
           <button id="btnOpenChangelog" class="gap-add-btn" style="padding: 6px 14px;">
             查看更新日志
@@ -512,12 +517,29 @@
         </div>
 
         <div class="changelog-timeline">
-          <!-- v1.2.0 Current -->
+          <!-- v1.2.3 Current -->
           <div class="changelog-card current">
             <div class="changelog-header">
               <div class="changelog-version">
+                <span>v1.2.3</span>
+                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 草稿深度防丢与快照保险箱</span>
+              </div>
+              <span class="changelog-date">2026-11-11</span>
+            </div>
+            <ul class="changelog-list">
+              <li><b>🛡️ 彻底根除草稿丢失 Bug</b>：修复非复盘页面切换或屏幕息屏时空输入框意外覆盖存储数据的根因；增加页面初载即时注入与严格空值覆写防御保护。</li>
+              <li><b>📜 防误丢历史版本快照箱</b>：打字实时防抖保存的同时，自动在本地备份最近 40 个编辑快照版本，支持一键找回恢复。</li>
+              <li><b>🚫 消除误触清空隐患</b>：全面下线危险的“清空”按钮，防止在手机屏幕上下滑动或打字时发生灾难性误触。</li>
+              <li><b>📅 跨天防迷失提示条</b>：非今日浏览复盘页面时显示温馨提示条，提供一键“回到今天 ➜”快捷入口。</li>
+            </ul>
+          </div>
+
+          <!-- v1.2.0 Previous -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <div class="changelog-version">
                 <span>v1.2.0</span>
-                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 知行三段与身心体态版</span>
+                <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
               </div>
               <span class="changelog-date">2026-11-10</span>
             </div>
@@ -598,6 +620,23 @@
               <li><b>🧩 矩阵生态融合</b>：支持与未来新增的习惯管理、记事随笔等新 APP 互联聚合。</li>
             </ul>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History Snapshots Modal (防丢历史快照保险箱) -->
+    <div id="snapshotsModal" class="modal-overlay">
+      <div class="bottom-sheet" style="max-height: 80vh;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">📜 历史版本与防丢快照</span>
+          <button id="snapshotsCloseBtn" class="sheet-close-btn">✕</button>
+        </div>
+        <p style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+          系统已为您在本地自动存储最近编辑快照。若误删或遗失，可直接点击一键找回恢复。
+        </p>
+        <div id="snapshotsListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto;">
+          <!-- 动态渲染历史快照列表 -->
         </div>
       </div>
     </div>
