@@ -225,10 +225,26 @@ def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, re
                 content
             )
 
+        # 整日身心状态与症状
+        symptom_notes = body_state.get("bodySymptomNotes", "")
+        if symptom_notes and symptom_notes.strip():
+            clean_symp = symptom_notes.strip()
+            p_symp = r"(- \*\*整日身心状态与症状\*\*[:：])([\s\S]*?)(?=\n###|\n---|\Z)"
+            if re.search(p_symp, content):
+                content = re.sub(p_symp, f"\\1 {clean_symp}\n\n", content)
+
+        # 情绪耐受度具体过程
+        stress_notes = body_state.get("stressDetailNotes", "")
+        if stress_notes and stress_notes.strip():
+            clean_stress = stress_notes.strip()
+            p_stress = r"(- \*\*具体过程\*\*[:：])([\s\S]*?)(?=\n###|\n---|\Z)"
+            if re.search(p_stress, content):
+                content = re.sub(p_stress, f"\\1 {clean_stress}\n\n", content)
+
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(content)
 
-    return True, f"已成功更新 {date_str}_每日知行日志.md 的计划、执行、反思与体重数据！"
+    return True, f"已成功更新 {date_str}_每日知行日志.md 的计划、执行、反思、微步打卡与身心数据！"
 
 class SyncHandler(BaseHTTPRequestHandler):
     def _send_cors(self):
@@ -249,7 +265,7 @@ class SyncHandler(BaseHTTPRequestHandler):
             resp = {
                 "status": "online",
                 "app": "TimeMirror-Obsidian-Sync-Bridge",
-                "version": "1.2.0",
+                "version": "1.3.0",
                 "vault": VAULT_ROOT,
                 "lan_ip": lan_ip,
                 "port": PORT,

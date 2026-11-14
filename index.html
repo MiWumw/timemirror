@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.3.0 · 身心合流版</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.3.1 · 身心合流版</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -194,7 +194,16 @@
             </div>
           </div>
 
-          <div class="body-state-row">
+          <!-- 整日身心状态与症状独立输入框 -->
+          <div class="body-state-row" style="margin-top: 4px;">
+            <div class="body-state-label">
+              <span>🩺 整日身心状态与症状 (随时记)</span>
+              <span id="symptomAutoSaveTag" class="auto-save-tag">🟢 实时已存</span>
+            </div>
+            <textarea id="inputBodySymptomNotes" class="fullscreen-textarea" style="min-height: 70px; font-size: 0.82rem; padding: 8px 10px;" placeholder="记录今天一整天的身体感知、代谢变化、舌脉或不适症状（打字即时自动保存，直通 Obsidian 第三部分）..."></textarea>
+          </div>
+
+          <div class="body-state-row" style="margin-top: 6px;">
             <div class="body-state-label">
               <span>🌊 情绪应激与回神</span>
               <span id="labelStressState" style="color: #D97706; font-weight: 700;">-</span>
@@ -209,6 +218,15 @@
               <input type="number" id="inputRecoverMinutes" class="weight-input" style="width: 70px; height: 30px; font-size: 0.85rem;" placeholder="0" min="0" max="180">
               <span style="font-size: 0.72rem; color: #065F46;">分钟（深呼吸/冥想后回神）</span>
             </div>
+          </div>
+
+          <!-- 情绪耐受度具体过程独立输入框 -->
+          <div class="body-state-row" style="margin-top: 4px;">
+            <div class="body-state-label">
+              <span>💭 情绪耐受度具体过程 (随时记)</span>
+              <span id="stressDetailAutoSaveTag" class="auto-save-tag">🟢 实时已存</span>
+            </div>
+            <textarea id="inputStressDetailNotes" class="fullscreen-textarea" style="min-height: 70px; font-size: 0.82rem; padding: 8px 10px;" placeholder="记录遇到什么事情绪发紧/心慌、具体心路过程、觉察并深呼吸后如何回神（打字即时自动保存，直通 Obsidian 第三部分）..."></textarea>
           </div>
         </div>
       </div>
@@ -426,8 +444,8 @@
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #F1F5F9; padding: 10px 12px; border-radius: var(--radius-md);">
           <div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.3.0 (身心体态合流与极简微步版)</div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261114 · 极简身心追踪+践行微步分级打卡+顶栏轻量化与键盘避让</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.3.1 (身心体态合流与整日症状输入版)</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261114 · 整日身心症状与情绪过程专属文本框+极简身心追踪+践行微步分级打卡+局域网全量直通</div>
           </div>
           <button id="btnOpenChangelog" class="gap-add-btn" style="padding: 6px 14px;">
             查看更新日志
@@ -639,20 +657,34 @@
         </div>
 
         <div class="changelog-timeline">
-          <!-- v1.3.0 Current -->
+          <!-- v1.3.1 Current -->
           <div class="changelog-card current">
             <div class="changelog-header">
               <div class="changelog-version">
+                <span>v1.3.1</span>
+                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 整日症状与过程直通版</span>
+              </div>
+              <span class="changelog-date">2026-11-14</span>
+            </div>
+            <ul class="changelog-list">
+              <li><b>📝 新增整日身心症状与情绪过程专属输入框</b>：在复盘页分别增设【整日身心状态与症状】与【情绪耐受度具体过程】输入域，从复盘反思中彻底独立，打字即时自动防抖持久化，永不丢失。</li>
+              <li><b>🚀 局域网直通全要素入库</b>：彻底打通直通服务，手机端勾选的微步打卡、点选的身心状态、填写的整日身心症状与情绪心路过程，一键秒级写入 Obsidian 当日知行日志对应章节！</li>
+            </ul>
+          </div>
+
+          <!-- v1.3.0 Previous -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <div class="changelog-version">
                 <span>v1.3.0</span>
-                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 身心体态合流与极简微步版</span>
+                <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
               </div>
               <span class="changelog-date">2026-11-14</span>
             </div>
             <ul class="changelog-list">
               <li><b>📱 根除输入框上抬被遮挡痛点</b>：顶栏全天图谱与快捷数据下沉为时间流专属卡片，仅保留 48px 超薄吸顶日期栏，输入框增加 56px 呼吸避让区，彻底告别键盘弹出遮字。</li>
-              <li><b>🥋 践行微步·分级打卡落地</b>：无缝打通《极简打卡模板》，划分 🟢【保底线】不可失败的基础步（做完即全天成功）与 🟡【进阶项】状态充沛加分步，手指一触即完成打卡。</li>
-              <li><b>🌿 身体与心绪觉受 30 秒点选</b>：新增晨起精力、鼻腔通气（均通畅/发堵/单通）、脊柱挺拔体态自觉、情绪应激与平复时差芯片化点选，轻快高效。</li>
-              <li><b>🚀 全要素局域网直通升级</b>：一键直通 Obsidian，不仅写入计划、流水、反思和体重，更同步勾选第二部分微步打卡与第三部分身心追踪，双端 100% 顺畅协同无冲突。</li>
+              <li><b>🥋 践行微步·分级打卡落地</b>：无缝打通《极简打卡模板》，划分 🟢【保底线】不可失败的基础步与 🟡【进阶项】状态充沛加分步，手指一触即完成打卡。</li>
+              <li><b>🌿 身体与心绪觉受 30 秒点选</b>：新增晨起精力、鼻腔通气（均通畅/发堵/单通）、脊柱挺拔体态自觉、情绪应激与平复时差芯片化点选。</li>
             </ul>
           </div>
 

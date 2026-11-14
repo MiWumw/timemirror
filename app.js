@@ -185,6 +185,8 @@ const weightDiffTag = document.getElementById('weightDiffTag');
 const btnToggleWeightTrend = document.getElementById('btnToggleWeightTrend');
 const weightTrendDrawer = document.getElementById('weightTrendDrawer');
 const btnSaveWeightOnly = document.getElementById('btnSaveWeightOnly');
+const inputBodySymptomNotes = document.getElementById('inputBodySymptomNotes');
+const inputStressDetailNotes = document.getElementById('inputStressDetailNotes');
 
 const inputDailyPlan = document.getElementById('inputDailyPlan');
 const btnInsertPlanTemplate = document.getElementById('btnInsertPlanTemplate');
@@ -447,6 +449,14 @@ function initEventListeners() {
       }
       saveBodyState();
     });
+  }
+
+  // 整日身心症状与情绪耐受过程文本输入事件
+  if (inputBodySymptomNotes) {
+    inputBodySymptomNotes.addEventListener('input', handleBodySymptomInput);
+  }
+  if (inputStressDetailNotes) {
+    inputStressDetailNotes.addEventListener('input', handleStressDetailInput);
   }
 
   // 保存今日知行
@@ -991,8 +1001,12 @@ function handleSaveWeightOnly(showToastNotice = true) {
 function autoResizeTextarea(el) {
   if (!el) return;
   el.style.height = 'auto';
-  const minH = el.classList.contains('large') ? 190 : 130;
-  el.style.height = Math.max(el.scrollHeight, minH) + 'px';
+  let defaultMinH = el.classList.contains('large') ? 190 : 130;
+  if (el.style.minHeight) {
+    const parsedMin = parseInt(el.style.minHeight, 10);
+    if (!isNaN(parsedMin)) defaultMinH = parsedMin;
+  }
+  el.style.height = Math.max(el.scrollHeight, defaultMinH) + 'px';
 }
 
 // ==========================================
@@ -1185,9 +1199,24 @@ function flushZhixingDrafts() {
     const num = parseFloat(inputDailyWeight.value.trim());
     if (!isNaN(num) && num > 0) state.weights[state.currentDate] = Number(num.toFixed(1));
   }
+  if (inputBodySymptomNotes) {
+    const sVal = inputBodySymptomNotes.value;
+    if (!state.bodyState[state.currentDate]) state.bodyState[state.currentDate] = {};
+    if (sVal || !state.bodyState[state.currentDate].bodySymptomNotes) {
+      state.bodyState[state.currentDate].bodySymptomNotes = sVal;
+    }
+  }
+  if (inputStressDetailNotes) {
+    const dVal = inputStressDetailNotes.value;
+    if (!state.bodyState[state.currentDate]) state.bodyState[state.currentDate] = {};
+    if (dVal || !state.bodyState[state.currentDate].stressDetailNotes) {
+      state.bodyState[state.currentDate].stressDetailNotes = dVal;
+    }
+  }
   savePlans();
   saveReflections();
   saveWeights();
+  saveBodyState();
 }
 
 // 计划实时自动保存防抖处理
@@ -1208,6 +1237,56 @@ function handlePlanInput() {
   planSaveTimer = setTimeout(() => {
     savePlans();
     saveZhixingSnapshot('plan', val);
+    if (tag) {
+      tag.className = 'auto-save-tag';
+      tag.textContent = '🟢 实时已存';
+    }
+  }, 200);
+}
+
+// 整日身心症状实时自动保存防抖处理
+let symptomSaveTimer = null;
+function handleBodySymptomInput() {
+  if (!inputBodySymptomNotes) return;
+  const val = inputBodySymptomNotes.value;
+  if (!state.bodyState[state.currentDate]) state.bodyState[state.currentDate] = {};
+  state.bodyState[state.currentDate].bodySymptomNotes = val;
+  autoResizeTextarea(inputBodySymptomNotes);
+
+  const tag = document.getElementById('symptomAutoSaveTag');
+  if (tag) {
+    tag.className = 'auto-save-tag saving';
+    tag.textContent = '💾 保存中...';
+  }
+
+  clearTimeout(symptomSaveTimer);
+  symptomSaveTimer = setTimeout(() => {
+    saveBodyState();
+    if (tag) {
+      tag.className = 'auto-save-tag';
+      tag.textContent = '🟢 实时已存';
+    }
+  }, 200);
+}
+
+// 情绪耐受过程实时自动保存防抖处理
+let stressDetailSaveTimer = null;
+function handleStressDetailInput() {
+  if (!inputStressDetailNotes) return;
+  const val = inputStressDetailNotes.value;
+  if (!state.bodyState[state.currentDate]) state.bodyState[state.currentDate] = {};
+  state.bodyState[state.currentDate].stressDetailNotes = val;
+  autoResizeTextarea(inputStressDetailNotes);
+
+  const tag = document.getElementById('stressDetailAutoSaveTag');
+  if (tag) {
+    tag.className = 'auto-save-tag saving';
+    tag.textContent = '💾 保存中...';
+  }
+
+  clearTimeout(stressDetailSaveTimer);
+  stressDetailSaveTimer = setTimeout(() => {
+    saveBodyState();
     if (tag) {
       tag.className = 'auto-save-tag';
       tag.textContent = '🟢 实时已存';
@@ -1384,6 +1463,28 @@ function renderBodyStateSection() {
   if (recoverInput) {
     recoverInput.value = (data.recoverMinutes !== undefined && data.recoverMinutes !== null) ? data.recoverMinutes : '';
   }
+
+  // 6. 整日身心状态与症状文本
+  if (inputBodySymptomNotes) {
+    inputBodySymptomNotes.value = data.bodySymptomNotes || '';
+    autoResizeTextarea(inputBodySymptomNotes);
+    const tag = document.getElementById('symptomAutoSaveTag');
+    if (tag) {
+      tag.className = 'auto-save-tag';
+      tag.textContent = '🟢 实时已存';
+    }
+  }
+
+  // 7. 情绪耐受度具体过程文本
+  if (inputStressDetailNotes) {
+    inputStressDetailNotes.value = data.stressDetailNotes || '';
+    autoResizeTextarea(inputStressDetailNotes);
+    const tag = document.getElementById('stressDetailAutoSaveTag');
+    if (tag) {
+      tag.className = 'auto-save-tag';
+      tag.textContent = '🟢 实时已存';
+    }
+  }
 }
 
 function handleBodyStateSelect(type, val) {
@@ -1454,6 +1555,13 @@ function handleSaveDailyZhixing() {
 
   // 保存体重、微步习惯与身心体态
   handleSaveWeightOnly(false);
+  if (!state.bodyState[state.currentDate]) state.bodyState[state.currentDate] = {};
+  if (inputBodySymptomNotes) {
+    state.bodyState[state.currentDate].bodySymptomNotes = inputBodySymptomNotes.value;
+  }
+  if (inputStressDetailNotes) {
+    state.bodyState[state.currentDate].stressDetailNotes = inputStressDetailNotes.value;
+  }
   saveHabits();
   saveBodyState();
 
@@ -1929,12 +2037,16 @@ function generateFullZhixingMarkdown(dateStr) {
   const noseBoxes = noseOpts.map(opt => `[${body.nose === opt ? 'x' : ' '}] ${opt}`).join(' ');
   sections.push(`- **鼻腔通气**：${noseBoxes}`);
   sections.push(`- **体态自觉**：${body.postureScore ? body.postureScore + ' / 5 分（脊柱挺拔、胸背自然舒展度）' : '___ / 5 分'}`);
+  const sympText = (inputBodySymptomNotes && dateStr === state.currentDate) ? inputBodySymptomNotes.value.trim() : (body.bodySymptomNotes ? body.bodySymptomNotes.trim() : '');
+  sections.push(`- **整日身心状态与症状**：${sympText}`);
   sections.push('');
   sections.push('### 2. 情绪耐受度');
   const stressOpts = ["无明显波澜", "遇事发紧/心慌", "陷入焦虑退缩"];
   const stressBoxes = stressOpts.map(opt => `[${body.stress === opt ? 'x' : ' '}] ${opt}`).join(' ');
   sections.push(`- **今日应激**：${stressBoxes}`);
   sections.push(`- **平复时差**：${body.recoverMinutes !== undefined && body.recoverMinutes !== null && String(body.recoverMinutes).trim() !== '' ? body.recoverMinutes + ' 分钟（觉察并深呼吸/冥想后回神的速度）' : '___ 分钟'}`);
+  const stressDetailText = (inputStressDetailNotes && dateStr === state.currentDate) ? inputStressDetailNotes.value.trim() : (body.stressDetailNotes ? body.stressDetailNotes.trim() : '');
+  sections.push(`- **具体过程**：${stressDetailText}`);
 
   return sections.join('\n');
 }
@@ -2014,6 +2126,16 @@ async function syncToObsidianLAN() {
       saveWeights();
     }
   }
+
+  // 收拢最新的身心症状与情绪过程输入
+  if (!state.bodyState[state.currentDate]) state.bodyState[state.currentDate] = {};
+  if (inputBodySymptomNotes) {
+    state.bodyState[state.currentDate].bodySymptomNotes = inputBodySymptomNotes.value.trim();
+  }
+  if (inputStressDetailNotes) {
+    state.bodyState[state.currentDate].stressDetailNotes = inputStressDetailNotes.value.trim();
+  }
+  saveBodyState();
 
   const records = (state.records[state.currentDate] || []).slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
   const formattedText = generateObsidianNightlyLog(state.currentDate);
