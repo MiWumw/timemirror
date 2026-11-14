@@ -1,5 +1,5 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v123-snapshots';
+const CACHE_NAME = 'timemirror-v130-bodyhabits';
 const ASSETS = [
   './',
   './index.html',

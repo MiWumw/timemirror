@@ -79,6 +79,22 @@ function saveReflections() {
   StorageAdapter.save('reflections', state.reflections);
 }
 
+function loadHabits() {
+  return StorageAdapter.load('habits', {});
+}
+
+function saveHabits() {
+  StorageAdapter.save('habits', state.habits);
+}
+
+function loadBodyState() {
+  return StorageAdapter.load('body_state', {});
+}
+
+function saveBodyState() {
+  StorageAdapter.save('body_state', state.bodyState);
+}
+
 // App State
 let state = {
   currentDate: getTodayString(),
@@ -88,6 +104,8 @@ let state = {
   plans: loadPlans(),
   weights: loadWeights(),
   reflections: loadReflections(),
+  habits: loadHabits(),
+  bodyState: loadBodyState(),
   selectedCategory: 'phone',
   editingRecordId: null,
   charts: {
@@ -200,10 +218,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (Object.keys(state.records).length === 0) {
     loadSampleData();
   }
-  // 首次载入即时同步填入草稿，防止 DOM 滞后与意外空值冲刷
+  // 首次载入即时同步填入草稿与打卡，防止 DOM 滞后与意外空值冲刷
   renderDailyPlanSection();
   renderDailyReflectionSection();
   renderDailyWeightSection();
+  renderHabitsSection();
+  renderBodyStateSection();
   updateUI();
   registerServiceWorker();
 });
@@ -376,6 +396,56 @@ function initEventListeners() {
       if (toggleChartLabel) {
         toggleChartLabel.textContent = isHidden ? '📊 收起时间饼图与分析 ▴' : '📊 展开时间饼图与摸鱼深度分析 ▾';
       }
+    });
+  }
+
+  // 践行微步分级打卡事件
+  document.querySelectorAll('.habit-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'INPUT') {
+        const key = item.dataset.habit;
+        if (key) toggleHabit(key);
+      }
+    });
+    const chk = item.querySelector('.habit-checkbox');
+    if (chk) {
+      chk.addEventListener('change', () => {
+        const key = item.dataset.habit;
+        if (key) {
+          if (!state.habits[state.currentDate]) state.habits[state.currentDate] = {};
+          state.habits[state.currentDate][key] = chk.checked;
+          saveHabits();
+          renderHabitsSection();
+        }
+      });
+    }
+  });
+
+  // 身心觉知芯片点选事件
+  document.querySelectorAll('#groupEnergyScore .score-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleBodyStateSelect('energy', parseInt(btn.dataset.score, 10)));
+  });
+  document.querySelectorAll('#groupNoseState .nose-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleBodyStateSelect('nose', btn.dataset.val));
+  });
+  document.querySelectorAll('#groupPostureScore .posture-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleBodyStateSelect('postureScore', parseInt(btn.dataset.score, 10)));
+  });
+  document.querySelectorAll('#groupStressState .stress-btn').forEach(btn => {
+    btn.addEventListener('click', () => handleBodyStateSelect('stress', btn.dataset.val));
+  });
+
+  const inputRecoverMinutes = document.getElementById('inputRecoverMinutes');
+  if (inputRecoverMinutes) {
+    inputRecoverMinutes.addEventListener('input', () => {
+      if (!state.bodyState[state.currentDate]) state.bodyState[state.currentDate] = {};
+      const val = inputRecoverMinutes.value.trim();
+      if (val === '') {
+        delete state.bodyState[state.currentDate].recoverMinutes;
+      } else {
+        state.bodyState[state.currentDate].recoverMinutes = parseInt(val, 10) || 0;
+      }
+      saveBodyState();
     });
   }
 
@@ -852,8 +922,10 @@ function renderReviewTab() {
   }
 
   renderDailyWeightSection();
+  renderBodyStateSection();
   renderDailyPlanSection();
   renderDailyExecutionSection();
+  renderHabitsSection();
   renderDailyReflectionSection();
 }
 
@@ -1271,6 +1343,101 @@ function renderDailyReflectionSection() {
   }
 }
 
+// 身心体态觉知 (早晚 30 秒) 与践行微步分级打卡
+function renderBodyStateSection() {
+  const data = state.bodyState[state.currentDate] || {};
+
+  // 1. 晨起精力
+  const energy = data.energy || null;
+  const energyLabel = document.getElementById('labelEnergyScore');
+  if (energyLabel) energyLabel.textContent = energy ? `${energy} 分` : '-';
+  document.querySelectorAll('#groupEnergyScore .score-btn').forEach(btn => {
+    btn.classList.toggle('score-active', btn.dataset.score === String(energy));
+  });
+
+  // 2. 鼻腔通气
+  const nose = data.nose || null;
+  const noseLabel = document.getElementById('labelNoseState');
+  if (noseLabel) noseLabel.textContent = nose || '-';
+  document.querySelectorAll('#groupNoseState .nose-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.val === nose);
+  });
+
+  // 3. 体态自觉
+  const posture = data.postureScore || null;
+  const postureLabel = document.getElementById('labelPostureScore');
+  if (postureLabel) postureLabel.textContent = posture ? `${posture} 分` : '-';
+  document.querySelectorAll('#groupPostureScore .posture-btn').forEach(btn => {
+    btn.classList.toggle('score-active', btn.dataset.score === String(posture));
+  });
+
+  // 4. 情绪应激
+  const stress = data.stress || null;
+  const stressLabel = document.getElementById('labelStressState');
+  if (stressLabel) stressLabel.textContent = stress || '-';
+  document.querySelectorAll('#groupStressState .stress-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.val === stress);
+  });
+
+  // 5. 平复时差
+  const recoverInput = document.getElementById('inputRecoverMinutes');
+  if (recoverInput) {
+    recoverInput.value = (data.recoverMinutes !== undefined && data.recoverMinutes !== null) ? data.recoverMinutes : '';
+  }
+}
+
+function handleBodyStateSelect(type, val) {
+  if (!state.bodyState[state.currentDate]) {
+    state.bodyState[state.currentDate] = {};
+  }
+  const current = state.bodyState[state.currentDate][type];
+  if (current === val) {
+    delete state.bodyState[state.currentDate][type];
+  } else {
+    state.bodyState[state.currentDate][type] = val;
+  }
+  saveBodyState();
+  renderBodyStateSection();
+}
+
+function renderHabitsSection() {
+  const habits = state.habits[state.currentDate] || {};
+  const habitKeys = ['meditation', 'baduanjin', 'posture3', 'yijinjing', 'mabu', 'sleepMeditation', 'calisthenics'];
+
+  habitKeys.forEach(key => {
+    const isChecked = !!habits[key];
+    const chk = document.getElementById(`chk_${key}`);
+    if (chk) chk.checked = isChecked;
+    const parentLabel = document.querySelector(`.habit-item[data-habit="${key}"]`);
+    if (parentLabel) parentLabel.classList.toggle('checked', isChecked);
+  });
+
+  const baseAccomplished = !!(habits.meditation && habits.baduanjin && habits.posture3);
+  const badge = document.getElementById('habitBaseBadge');
+  if (badge) {
+    if (baseAccomplished) {
+      badge.textContent = '🟢 今日保底已达成！';
+      badge.style.background = '#ECFDF5';
+      badge.style.color = '#059669';
+      badge.style.borderColor = '#A7F3D0';
+    } else {
+      badge.textContent = '待完成保底';
+      badge.style.background = '#F1F5F9';
+      badge.style.color = '#64748B';
+      badge.style.borderColor = '#CBD5E1';
+    }
+  }
+}
+
+function toggleHabit(habitKey) {
+  if (!state.habits[state.currentDate]) {
+    state.habits[state.currentDate] = {};
+  }
+  state.habits[state.currentDate][habitKey] = !state.habits[state.currentDate][habitKey];
+  saveHabits();
+  renderHabitsSection();
+}
+
 // 5. 保存知行合流整套数据
 function handleSaveDailyZhixing() {
   // 保存计划
@@ -1285,10 +1452,12 @@ function handleSaveDailyZhixing() {
     saveReflections();
   }
 
-  // 保存体重
+  // 保存体重、微步习惯与身心体态
   handleSaveWeightOnly(false);
+  saveHabits();
+  saveBodyState();
 
-  showToast('🎉 今日计划、反思与体重已全部妥善保存！');
+  showToast('🎉 今日计划、微步打卡、反思与身心数据已全部妥善保存！');
 }
 
 // 6. 内联 14 天体重走势图 (复盘页内)
@@ -1595,7 +1764,9 @@ function exportData() {
     records: state.records,
     plans: state.plans,
     weights: state.weights,
-    reflections: state.reflections
+    reflections: state.reflections,
+    habits: state.habits,
+    bodyState: state.bodyState
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -1618,10 +1789,14 @@ function importData(e) {
       if (data.weights) state.weights = data.weights;
       if (data.reflections) state.reflections = data.reflections;
       if (data.categories) state.categories = data.categories;
+      if (data.habits) state.habits = data.habits;
+      if (data.bodyState) state.bodyState = data.bodyState;
       saveRecords();
       savePlans();
       saveWeights();
       saveReflections();
+      saveHabits();
+      saveBodyState();
       updateUI();
       alert('数据恢复成功！');
     } catch (err) {
@@ -1729,12 +1904,37 @@ function generateFullZhixingMarkdown(dateStr) {
   } else {
     sections.push('- ');
   }
+  sections.push('');
 
-  // 身体纪事与晨起体重
-  if (weight) {
-    sections.push('');
-    sections.push(`- **晨起体重**：${weight} kg`);
-  }
+  // 第二部分：每日践行微步 (分级打卡)
+  const habits = state.habits[dateStr] || {};
+  sections.push('### 🟢 【保底线】不可失败的基础步（耗时约 20 分钟，做完即算全天成功）');
+  sections.push(`- [${habits.meditation ? 'x' : ' '}] 晨起调息/冥想（5~10分钟，安抚心神、觉察呼吸）`);
+  sections.push(`- [${habits.baduanjin ? 'x' : ' '}] 八段锦 1 遍（温和疏通经络气血）`);
+  sections.push(`- [${habits.posture3 ? 'x' : ' '}] 体态调整 3 动作（针对含胸驼背、脊柱侧弯、骨盆前倾的温和伸展）`);
+  sections.push('');
+  sections.push('### 🟡 【进阶项】状态充沛时的加分步（根据当天精力自由选做 1~2 项，不强求）');
+  sections.push(`- [${habits.yijinjing ? 'x' : ' '}] 易筋经 / 五脏逼毒`);
+  sections.push(`- [${habits.mabu ? 'x' : ' '}] 四平马步（筑基下盘）`);
+  sections.push(`- [${habits.sleepMeditation ? 'x' : ' '}] 睡前冥想（放松神经）`);
+  sections.push(`- [${habits.calisthenics ? 'x' : ' '}] 囚徒健身（胸肌 / 背肌 / 腹肌选练）`);
+  sections.push('');
+
+  // 第三部分：身体与心绪追踪
+  const body = state.bodyState[dateStr] || {};
+  sections.push('### 1. 身体状态与晨起体感');
+  sections.push(`- **空腹/晨起体重**：${weight ? weight + ' kg' : '___ kg'}`);
+  sections.push(`- **晨起精力**：${body.energy ? body.energy + ' / 5 分（1分沉重疲惫，3分平稳，5分清爽通透）' : '___ / 5 分'}`);
+  const noseOpts = ["左通右阻", "右通左阻", "均通畅", "均发堵"];
+  const noseBoxes = noseOpts.map(opt => `[${body.nose === opt ? 'x' : ' '}] ${opt}`).join(' ');
+  sections.push(`- **鼻腔通气**：${noseBoxes}`);
+  sections.push(`- **体态自觉**：${body.postureScore ? body.postureScore + ' / 5 分（脊柱挺拔、胸背自然舒展度）' : '___ / 5 分'}`);
+  sections.push('');
+  sections.push('### 2. 情绪耐受度');
+  const stressOpts = ["无明显波澜", "遇事发紧/心慌", "陷入焦虑退缩"];
+  const stressBoxes = stressOpts.map(opt => `[${body.stress === opt ? 'x' : ' '}] ${opt}`).join(' ');
+  sections.push(`- **今日应激**：${stressBoxes}`);
+  sections.push(`- **平复时差**：${body.recoverMinutes !== undefined && body.recoverMinutes !== null && String(body.recoverMinutes).trim() !== '' ? body.recoverMinutes + ' 分钟（觉察并深呼吸/冥想后回神的速度）' : '___ 分钟'}`);
 
   return sections.join('\n');
 }
@@ -1823,6 +2023,8 @@ async function syncToObsidianLAN() {
     planText: planText,
     reflectionText: reflectionText,
     weight: weightVal !== undefined ? weightVal : null,
+    habits: state.habits[state.currentDate] || {},
+    bodyState: state.bodyState[state.currentDate] || {},
     formattedText: formattedText,
     records: records.map(r => {
       const cat = state.categories.find(c => c.id === r.category) || { name: '日常' };

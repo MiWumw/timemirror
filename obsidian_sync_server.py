@@ -46,13 +46,15 @@ def get_lan_ip():
     except Exception:
         return "127.0.0.1"
 
-def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, reflection_text=None, weight=None):
+def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, reflection_text=None, weight=None, habits=None, body_state=None):
     """
-    精确写入或更新当天 Obsidian 知行日志的四大核心元素：
+    精确写入或更新当天 Obsidian 知行日志的核心元素：
     1. 【### 🎯 晨起立志（打算做什么？）】—— 今日计划
     2. 【### ⚡ 暮夜对账（实际做了什么？）】—— 时间执行流水
     3. 【### 🪞 诚意慎独（今日得失与明日调适）】—— 今日反思
     4. 【晨起体重】—— Frontmatter weight 与 正文晨起体重记录
+    5. 【第二部分 · 每日践行微步】—— 🟢保底线与🟡进阶项打卡勾选
+    6. 【第三部分 · 身体与心绪追踪】—— 晨起精力、鼻腔通气、体态自觉、情绪应激、平复时差
     """
     diary_dir = os.path.join(VAULT_ROOT, DIARY_SUBDIR)
     os.makedirs(diary_dir, exist_ok=True)
@@ -90,8 +92,12 @@ def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, re
             content = f"---\n{new_fm.strip()}\n---" + content[fm_match.end():]
 
         # 更新或插入第三部分的晨起体重
-        if "- **晨起体重**：" in content:
+        if re.search(r"- \*\*(?:空腹/)?晨起体重\*\*：.*", content):
+            content = re.sub(r"- \*\*(?:空腹/)?晨起体重\*\*：.*", f"- **空腹/晨起体重**：{w_val} kg", content)
+        elif "- **晨起体重**：" in content:
             content = re.sub(r"- \*\*晨起体重\*\*：.*", f"- **晨起体重**：{w_val} kg", content)
+        elif "### 1. 身体状态与晨起体感" in content:
+            content = content.replace("### 1. 身体状态与晨起体感\n", f"### 1. 身体状态与晨起体感\n- **空腹/晨起体重**：{w_val} kg\n")
         elif "### 1. 晨起体感与起居" in content:
             content = content.replace("### 1. 晨起体感与起居\n", f"### 1. 晨起体感与起居\n- **晨起体重**：{w_val} kg\n")
 
@@ -159,6 +165,65 @@ def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, re
             content = content[:match_refl.start()] + new_section + content[match_refl.end():]
         else:
             content += f"\n\n### 🪞 诚意慎独（今日得失与明日调适）\n{refl_block}\n"
+
+    # 6. 更新或勾选【践行微步（分级打卡）】
+    if habits and isinstance(habits, dict):
+        habit_patterns = {
+            "meditation": r"(-\s*\[[ x]\]\s*)(\s*晨起调息/冥想[^\n]*)",
+            "baduanjin": r"(-\s*\[[ x]\]\s*)(\s*八段锦\s*1\s*遍[^\n]*)",
+            "posture3": r"(-\s*\[[ x]\]\s*)(\s*体态调整\s*3\s*动作[^\n]*)",
+            "yijinjing": r"(-\s*\[[ x]\]\s*)(\s*易筋经\s*/\s*五脏逼毒[^\n]*)",
+            "mabu": r"(-\s*\[[ x]\]\s*)(\s*四平马步[^\n]*)",
+            "sleepMeditation": r"(-\s*\[[ x]\]\s*)(\s*睡前冥想[^\n]*)",
+            "calisthenics": r"(-\s*\[[ x]\]\s*)(\s*囚徒健身[^\n]*)"
+        }
+        for h_key, pat in habit_patterns.items():
+            if h_key in habits:
+                mark = "[x]" if habits[h_key] else "[ ]"
+                content = re.sub(pat, f"- {mark} \\2", content)
+
+    # 7. 更新【身体与心绪追踪】
+    if body_state and isinstance(body_state, dict):
+        # 晨起精力 (1~5)
+        energy_val = body_state.get("energy")
+        if energy_val:
+            content = re.sub(
+                r"- \*\*晨起精力\*\*：.*",
+                f"- **晨起精力**：{energy_val} / 5 分（1分沉重疲惫，3分平稳，5分清爽通透）",
+                content
+            )
+
+        # 鼻腔通气
+        nose_val = body_state.get("nose")
+        if nose_val:
+            opts = ["左通右阻", "右通左阻", "均通畅", "均发堵"]
+            nose_boxes = " ".join([f"[{'x' if opt == nose_val else ' '}] {opt}" for opt in opts])
+            content = re.sub(r"- \*\*鼻腔通气\*\*：.*", f"- **鼻腔通气**：{nose_boxes}", content)
+
+        # 体态自觉 (1~5)
+        posture_val = body_state.get("postureScore")
+        if posture_val:
+            content = re.sub(
+                r"- \*\*体态自觉\*\*：.*",
+                f"- **体态自觉**：{posture_val} / 5 分（脊柱挺拔、胸背自然舒展度）",
+                content
+            )
+
+        # 情绪应激
+        stress_val = body_state.get("stress")
+        if stress_val:
+            s_opts = ["无明显波澜", "遇事发紧/心慌", "陷入焦虑退缩"]
+            stress_boxes = " ".join([f"[{'x' if opt == stress_val else ' '}] {opt}" for opt in s_opts])
+            content = re.sub(r"- \*\*今日应激\*\*：.*", f"- **今日应激**：{stress_boxes}", content)
+
+        # 平复时差
+        recover_val = body_state.get("recoverMinutes")
+        if recover_val is not None and str(recover_val).strip() != "":
+            content = re.sub(
+                r"- \*\*平复时差\*\*：.*",
+                f"- **平复时差**：{recover_val} 分钟（觉察并深呼吸/冥想后回神的速度）",
+                content
+            )
 
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(content)
@@ -252,6 +317,8 @@ class SyncHandler(BaseHTTPRequestHandler):
                 plan_text = data.get("planText", "")
                 reflection_text = data.get("reflectionText", "")
                 weight = data.get("weight", None)
+                habits = data.get("habits", None)
+                body_state = data.get("bodyState", None)
 
                 if not formatted_text and records:
                     lines = []
@@ -268,7 +335,9 @@ class SyncHandler(BaseHTTPRequestHandler):
                     records=records, 
                     plan_text=plan_text, 
                     reflection_text=reflection_text, 
-                    weight=weight
+                    weight=weight,
+                    habits=habits,
+                    body_state=body_state
                 )
                 code = 200 if success else 500
 

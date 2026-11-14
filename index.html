@@ -19,12 +19,12 @@
 
   <div class="app-shell">
 
-    <!-- Top Sticky Header -->
+    <!-- Top Slim Sticky Header -->
     <header class="app-header">
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.2.3 · 快照防丢版</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.3.0 · 身心合流版</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -33,44 +33,45 @@
           <button id="todayBtn" class="date-nav-btn" title="回到今天" style="font-size: 0.72rem; font-weight: 700; color: var(--primary);">今</button>
         </div>
       </div>
-
-      <!-- 24-Hour Continuous Spectrum Bar -->
-      <div class="spectrum-wrapper">
-        <div class="spectrum-label">
-          <span>24小时光阴流转</span>
-          <span id="spectrumPercent">全天图谱</span>
-        </div>
-        <div id="spectrumBar" class="spectrum-bar">
-          <!-- Dynamically filled segments -->
-        </div>
-        <div class="spectrum-scale">
-          <span>00:00</span>
-          <span>06:00</span>
-          <span>12:00</span>
-          <span>18:00</span>
-          <span>24:00</span>
-        </div>
-      </div>
-
-      <!-- Quick Summary Metric Chips -->
-      <div class="quick-stats">
-        <div class="stat-chip">
-          <div class="stat-chip-label">🕒 已记录</div>
-          <div id="loggedHours" class="stat-chip-val">0.0h</div>
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip-label">📱 摸鱼/刷手机</div>
-          <div id="wasterHours" class="stat-chip-val alert">0.0h</div>
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip-label">✨ 深度专注</div>
-          <div id="productiveHours" class="stat-chip-val success">0.0h</div>
-        </div>
-      </div>
     </header>
 
     <!-- TAB 1: 时间流 (Timeline) -->
     <main id="tab-timeline" class="tab-pane tab-content">
+      <!-- 24-Hour Continuous Spectrum Bar & Quick Summary (Only in Timeline Tab) -->
+      <div class="timeline-summary-card">
+        <div class="spectrum-wrapper">
+          <div class="spectrum-label">
+            <span>24小时光阴流转</span>
+            <span id="spectrumPercent">全天图谱</span>
+          </div>
+          <div id="spectrumBar" class="spectrum-bar">
+            <!-- Dynamically filled segments -->
+          </div>
+          <div class="spectrum-scale">
+            <span>00:00</span>
+            <span>06:00</span>
+            <span>12:00</span>
+            <span>18:00</span>
+            <span>24:00</span>
+          </div>
+        </div>
+
+        <!-- Quick Summary Metric Chips -->
+        <div class="quick-stats">
+          <div class="stat-chip">
+            <div class="stat-chip-label">🕒 已记录</div>
+            <div id="loggedHours" class="stat-chip-val">0.0h</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-label">📱 摸鱼/刷手机</div>
+            <div id="wasterHours" class="stat-chip-val alert">0.0h</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip-label">✨ 深度专注</div>
+            <div id="productiveHours" class="stat-chip-val success">0.0h</div>
+          </div>
+        </div>
+      </div>
       <!-- Desktop Mobile Sync Banner -->
       <div class="desktop-qr-card" id="desktopQrCard">
         <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 4px;">📲 手机扫码或浏览器打开体验</div>
@@ -120,15 +121,15 @@
         <button type="button" id="btnBackToTodayInReview" class="zhixing-tool-btn" style="background:#FFFFFF; color:#92400E; border-color:#FCD34D; font-weight: 700;">回到今天 ➜</button>
       </div>
 
-      <!-- 晨起体重卡片 -->
+      <!-- 晨起体态与身心状态卡片 (早晚 30 秒极简追踪) -->
       <div class="weight-card">
         <div class="weight-header">
           <div class="weight-title">
-            <span>⚖️ 晨起体重数据</span>
+            <span>🌿 晨起体态与身心状态 (早晚 30 秒)</span>
             <span id="weightDiffTag" class="weight-diff-tag flat">今日初记</span>
           </div>
           <button type="button" id="btnToggleWeightTrend" class="weight-trend-btn">
-            <span>📈 近期走势</span>
+            <span>📈 体重走势</span>
           </button>
         </div>
         <div class="weight-input-row">
@@ -147,6 +148,67 @@
           <div style="font-size: 0.75rem; color: #065F46; font-weight: 600; margin-bottom: 6px;">📊 近 14 天体重变化走势：</div>
           <div style="height: 160px; position: relative;">
             <canvas id="weightInlineChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 身心觉受快捷追踪 (早晚各花 30 秒) -->
+        <div class="body-state-grid">
+          <div class="body-state-row">
+            <div class="body-state-label">
+              <span>⚡ 晨起精力状态</span>
+              <span id="labelEnergyScore" style="color: #059669; font-weight: 700;">-</span>
+            </div>
+            <div class="chip-group" id="groupEnergyScore">
+              <button type="button" class="chip-btn score-btn" data-type="energy" data-score="1">1 沉重疲惫</button>
+              <button type="button" class="chip-btn score-btn" data-type="energy" data-score="2">2 微沉</button>
+              <button type="button" class="chip-btn score-btn" data-type="energy" data-score="3">3 平稳如常</button>
+              <button type="button" class="chip-btn score-btn" data-type="energy" data-score="4">4 充沛微喜</button>
+              <button type="button" class="chip-btn score-btn" data-type="energy" data-score="5">5 清爽通透</button>
+            </div>
+          </div>
+
+          <div class="body-state-row">
+            <div class="body-state-label">
+              <span>👃 鼻腔通气觉察</span>
+              <span id="labelNoseState" style="color: #2563EB; font-weight: 700;">-</span>
+            </div>
+            <div class="chip-group" id="groupNoseState">
+              <button type="button" class="chip-btn nose-btn" data-type="nose" data-val="均通畅">均通畅 ✨</button>
+              <button type="button" class="chip-btn nose-btn" data-type="nose" data-val="均发堵">均发堵 ⚠️</button>
+              <button type="button" class="chip-btn nose-btn" data-type="nose" data-val="左通右阻">左通右阻</button>
+              <button type="button" class="chip-btn nose-btn" data-type="nose" data-val="右通左阻">右通左阻</button>
+            </div>
+          </div>
+
+          <div class="body-state-row">
+            <div class="body-state-label">
+              <span>🩻 脊柱与体态自觉</span>
+              <span id="labelPostureScore" style="color: #7C3AED; font-weight: 700;">-</span>
+            </div>
+            <div class="chip-group" id="groupPostureScore">
+              <button type="button" class="chip-btn posture-btn" data-type="postureScore" data-score="1">1 塌软蜷缩</button>
+              <button type="button" class="chip-btn posture-btn" data-type="postureScore" data-score="2">2 轻微含胸</button>
+              <button type="button" class="chip-btn posture-btn" data-type="postureScore" data-score="3">3 自然端坐</button>
+              <button type="button" class="chip-btn posture-btn" data-type="postureScore" data-score="4">4 舒展挺拔</button>
+              <button type="button" class="chip-btn posture-btn" data-type="postureScore" data-score="5">5 虚领顶劲</button>
+            </div>
+          </div>
+
+          <div class="body-state-row">
+            <div class="body-state-label">
+              <span>🌊 情绪应激与回神</span>
+              <span id="labelStressState" style="color: #D97706; font-weight: 700;">-</span>
+            </div>
+            <div class="chip-group" id="groupStressState">
+              <button type="button" class="chip-btn stress-btn" data-type="stress" data-val="无明显波澜">无明显波澜 🍃</button>
+              <button type="button" class="chip-btn stress-btn" data-type="stress" data-val="遇事发紧/心慌">遇事发紧 ⚡</button>
+              <button type="button" class="chip-btn stress-btn" data-type="stress" data-val="陷入焦虑退缩">陷入焦虑 🌧️</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+              <span style="font-size: 0.72rem; color: #065F46; font-weight: 600;">平复时差：</span>
+              <input type="number" id="inputRecoverMinutes" class="weight-input" style="width: 70px; height: 30px; font-size: 0.85rem;" placeholder="0" min="0" max="180">
+              <span style="font-size: 0.72rem; color: #065F46;">分钟（深呼吸/冥想后回神）</span>
+            </div>
           </div>
         </div>
       </div>
@@ -196,6 +258,65 @@
           </div>
           <div style="height: 180px; position: relative;">
             <canvas id="reviewPieChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 践行微步 · 极简身心分级打卡 (保底线与进阶项) -->
+      <div class="zhixing-card" id="habitCard">
+        <div class="zhixing-card-header">
+          <div class="zhixing-title">
+            <span>🥋 践行微步 · 分级打卡</span>
+            <span id="habitBaseBadge" class="auto-save-tag" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;">待完成保底</span>
+          </div>
+        </div>
+        <div class="zhixing-desc">
+          做完不可失败的 3 件基础步即算全天成功；状态充沛时自由加分，轻松无负担（直通 Obsidian 第二部分）
+        </div>
+
+        <!-- 🟢 保底线 -->
+        <div style="margin-top: 10px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #047857; display: flex; align-items: center; gap: 4px;">
+            <span>🟢 【保底线】不可失败的基础步 (~20min，做完即全天成功)</span>
+          </div>
+          <div class="habit-checklist" id="baselineHabitsList">
+            <label class="habit-item" data-habit="meditation">
+              <input type="checkbox" class="habit-checkbox" id="chk_meditation">
+              <span>晨起调息 / 冥想 (5~10min，安抚心神)</span>
+            </label>
+            <label class="habit-item" data-habit="baduanjin">
+              <input type="checkbox" class="habit-checkbox" id="chk_baduanjin">
+              <span>八段锦 1 遍 (温和疏通经络气血)</span>
+            </label>
+            <label class="habit-item" data-habit="posture3">
+              <input type="checkbox" class="habit-checkbox" id="chk_posture3">
+              <span>体态调整 3 动作 (脊柱/胸廓/骨盆温和伸展)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 🟡 进阶项 -->
+        <div style="margin-top: 14px;">
+          <div style="font-size: 0.78rem; font-weight: 700; color: #B45309; display: flex; align-items: center; gap: 4px;">
+            <span>🟡 【进阶项】状态充沛时的加分步 (根据精力任选 1~2 项，不强求)</span>
+          </div>
+          <div class="habit-checklist" id="bonusHabitsList">
+            <label class="habit-item" data-habit="yijinjing">
+              <input type="checkbox" class="habit-checkbox" id="chk_yijinjing">
+              <span>易筋经 / 五脏逼毒法 (倪师吐纳法)</span>
+            </label>
+            <label class="habit-item" data-habit="mabu">
+              <input type="checkbox" class="habit-checkbox" id="chk_mabu">
+              <span>四平马步桩 (3~5min 筑基下盘)</span>
+            </label>
+            <label class="habit-item" data-habit="sleepMeditation">
+              <input type="checkbox" class="habit-checkbox" id="chk_sleepMeditation">
+              <span>睡前冥想 / 放松神经 (引火归元)</span>
+            </label>
+            <label class="habit-item" data-habit="calisthenics">
+              <input type="checkbox" class="habit-checkbox" id="chk_calisthenics">
+              <span>囚徒健身 (推/拉/核心选练 慢速控制)</span>
+            </label>
           </div>
         </div>
       </div>
@@ -305,8 +426,8 @@
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #F1F5F9; padding: 10px 12px; border-radius: var(--radius-md);">
           <div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.2.3 (知行防丢快照保险箱版)</div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261111 · 计划反思草稿深度防丢 + 移除误清空 + 历史版本快照找回</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.3.0 (身心体态合流与极简微步版)</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261114 · 极简身心追踪+践行微步分级打卡+顶栏轻量化与键盘避让</div>
           </div>
           <button id="btnOpenChangelog" class="gap-add-btn" style="padding: 6px 14px;">
             查看更新日志
@@ -518,12 +639,29 @@
         </div>
 
         <div class="changelog-timeline">
-          <!-- v1.2.3 Current -->
+          <!-- v1.3.0 Current -->
           <div class="changelog-card current">
             <div class="changelog-header">
               <div class="changelog-version">
+                <span>v1.3.0</span>
+                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 身心体态合流与极简微步版</span>
+              </div>
+              <span class="changelog-date">2026-11-14</span>
+            </div>
+            <ul class="changelog-list">
+              <li><b>📱 根除输入框上抬被遮挡痛点</b>：顶栏全天图谱与快捷数据下沉为时间流专属卡片，仅保留 48px 超薄吸顶日期栏，输入框增加 56px 呼吸避让区，彻底告别键盘弹出遮字。</li>
+              <li><b>🥋 践行微步·分级打卡落地</b>：无缝打通《极简打卡模板》，划分 🟢【保底线】不可失败的基础步（做完即全天成功）与 🟡【进阶项】状态充沛加分步，手指一触即完成打卡。</li>
+              <li><b>🌿 身体与心绪觉受 30 秒点选</b>：新增晨起精力、鼻腔通气（均通畅/发堵/单通）、脊柱挺拔体态自觉、情绪应激与平复时差芯片化点选，轻快高效。</li>
+              <li><b>🚀 全要素局域网直通升级</b>：一键直通 Obsidian，不仅写入计划、流水、反思和体重，更同步勾选第二部分微步打卡与第三部分身心追踪，双端 100% 顺畅协同无冲突。</li>
+            </ul>
+          </div>
+
+          <!-- v1.2.3 Previous -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <div class="changelog-version">
                 <span>v1.2.3</span>
-                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 草稿深度防丢与快照保险箱</span>
+                <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
               </div>
               <span class="changelog-date">2026-11-11</span>
             </div>

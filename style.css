@@ -57,23 +57,52 @@ body {
   padding-bottom: calc(75px + var(--safe-bottom));
 }
 
-/* Header */
+/* Header (Slim & Minimal Sticky Bar) */
 .app-header {
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
   z-index: 40;
   border-bottom: 1px solid var(--border);
-  padding: 12px 16px 8px;
+  padding: 8px 16px;
+  box-sizing: border-box;
 }
 
 .header-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+}
+
+/* Timeline Summary Card (in Timeline Tab) */
+.timeline-summary-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px 10px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.timeline-summary-card .spectrum-wrapper {
+  margin-top: 0;
+}
+
+.timeline-summary-card .quick-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 10px 0 0;
+}
+
+/* Prevent Keyboard Occlusion: Textareas and Cards have top scroll margin */
+.fullscreen-textarea,
+.zhixing-card,
+.weight-card {
+  scroll-margin-top: 56px;
 }
 
 .brand-title {
@@ -1245,6 +1274,113 @@ body {
 .weight-diff-tag.flat {
   background: #F1F5F9;
   color: #64748B;
+}
+
+/* 身心觉知芯片与打分组 */
+.body-state-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #A7F3D0;
+}
+
+.body-state-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.body-state-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #065F46;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip-btn {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: 0.74rem;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.chip-btn:active {
+  transform: scale(0.95);
+}
+
+.chip-btn.active {
+  background: #2563EB;
+  color: #FFFFFF;
+  border-color: #2563EB;
+  font-weight: 600;
+}
+
+.chip-btn.score-active {
+  background: #059669;
+  color: #FFFFFF;
+  border-color: #059669;
+  font-weight: 700;
+}
+
+/* 践行微步分级打卡 */
+.habit-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.habit-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  color: var(--text-main);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s;
+}
+
+.habit-item:active {
+  transform: scale(0.99);
+}
+
+.habit-item.checked {
+  background: #F0FDF4;
+  border-color: #86EFAC;
+  color: #065F46;
+}
+
+.habit-item.checked span {
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.habit-checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  accent-color: #10B981;
+  cursor: pointer;
 }
 
 /* 整屏三段式卡片 (Zhixing Section Cards) */
