@@ -226,20 +226,24 @@ def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, re
             )
 
         # 整日身心状态与症状
-        symptom_notes = body_state.get("bodySymptomNotes", "")
-        if symptom_notes and symptom_notes.strip():
-            clean_symp = symptom_notes.strip()
+        symptom_notes = body_state.get("bodySymptomNotes") or body_state.get("symptomNotes") or body_state.get("symptoms") or ""
+        if symptom_notes and str(symptom_notes).strip():
+            clean_symp = str(symptom_notes).strip()
             p_symp = r"(- \*\*整日身心状态与症状\*\*[:：])([\s\S]*?)(?=\n###|\n---|\Z)"
             if re.search(p_symp, content):
-                content = re.sub(p_symp, f"\\1 {clean_symp}\n\n", content)
+                content = re.sub(p_symp, lambda m: f"{m.group(1)} {clean_symp}\n\n", content, count=1)
+            elif "### 1. 身体状态与晨起体感" in content:
+                content = content.replace("### 1. 身体状态与晨起体感\n", f"### 1. 身体状态与晨起体感\n- **整日身心状态与症状**： {clean_symp}\n")
 
         # 情绪耐受度具体过程
-        stress_notes = body_state.get("stressDetailNotes", "")
-        if stress_notes and stress_notes.strip():
-            clean_stress = stress_notes.strip()
+        stress_notes = body_state.get("stressDetailNotes") or body_state.get("stressNotes") or body_state.get("stressDetail") or ""
+        if stress_notes and str(stress_notes).strip():
+            clean_stress = str(stress_notes).strip()
             p_stress = r"(- \*\*具体过程\*\*[:：])([\s\S]*?)(?=\n###|\n---|\Z)"
             if re.search(p_stress, content):
-                content = re.sub(p_stress, f"\\1 {clean_stress}\n\n", content)
+                content = re.sub(p_stress, lambda m: f"{m.group(1)} {clean_stress}\n\n", content, count=1)
+            elif "### 2. 情绪耐受度" in content:
+                content = content.replace("### 2. 情绪耐受度\n", f"### 2. 情绪耐受度\n- **具体过程**： {clean_stress}\n")
 
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(content)
@@ -335,6 +339,16 @@ class SyncHandler(BaseHTTPRequestHandler):
                 weight = data.get("weight", None)
                 habits = data.get("habits", None)
                 body_state = data.get("bodyState", None)
+
+                # 记录请求排查日志
+                try:
+                    log_file = os.path.join(BASE_DIR, "sync_server.log")
+                    with open(log_file, "a", encoding="utf-8") as lf:
+                        lf.write(f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] /sync date={date_str} is_form={is_form}\n")
+                        if body_state:
+                            lf.write(f"  bodyState: {json.dumps(body_state, ensure_ascii=False)}\n")
+                except Exception:
+                    pass
 
                 if not formatted_text and records:
                     lines = []

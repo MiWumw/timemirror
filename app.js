@@ -2127,14 +2127,12 @@ async function syncToObsidianLAN() {
     }
   }
 
-  // 收拢最新的身心症状与情绪过程输入
+  // 收拢最新的身心症状与情绪过程输入 (双重保障：优先获取界面输入，未改动则沿用已存数据)
   if (!state.bodyState[state.currentDate]) state.bodyState[state.currentDate] = {};
-  if (inputBodySymptomNotes) {
-    state.bodyState[state.currentDate].bodySymptomNotes = inputBodySymptomNotes.value.trim();
-  }
-  if (inputStressDetailNotes) {
-    state.bodyState[state.currentDate].stressDetailNotes = inputStressDetailNotes.value.trim();
-  }
+  const currentSympNotes = (inputBodySymptomNotes && inputBodySymptomNotes.value.trim()) || state.bodyState[state.currentDate].bodySymptomNotes || '';
+  const currentStressNotes = (inputStressDetailNotes && inputStressDetailNotes.value.trim()) || state.bodyState[state.currentDate].stressDetailNotes || '';
+  state.bodyState[state.currentDate].bodySymptomNotes = currentSympNotes;
+  state.bodyState[state.currentDate].stressDetailNotes = currentStressNotes;
   saveBodyState();
 
   const records = (state.records[state.currentDate] || []).slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
@@ -2146,7 +2144,11 @@ async function syncToObsidianLAN() {
     reflectionText: reflectionText,
     weight: weightVal !== undefined ? weightVal : null,
     habits: state.habits[state.currentDate] || {},
-    bodyState: state.bodyState[state.currentDate] || {},
+    bodyState: {
+      ...(state.bodyState[state.currentDate] || {}),
+      bodySymptomNotes: currentSympNotes,
+      stressDetailNotes: currentStressNotes
+    },
     formattedText: formattedText,
     records: records.map(r => {
       const cat = state.categories.find(c => c.id === r.category) || { name: '日常' };
