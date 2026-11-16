@@ -1,5 +1,5 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v132-sympfix';
+const CACHE_NAME = 'timemirror-v140-dynamic-habits-win6';
 const ASSETS = [
   './',
   './index.html',

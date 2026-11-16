@@ -1,0 +1,33 @@
+# 📜 《时镜 TimeMirror》双核协作流水日志 (WORKFLOW_LOG)
+
+> **维护者**：Antigravity (3.8 Flash) 自动追加  
+> **阅读者**：Gemini 网页版 (Hydrogen/Pro) & 开发者  
+> **记录原则**：记录关键决策、修改涉及的文件路径、验证结果；出现复杂报错时记录排查过程。
+
+---
+
+## [2026-11-14 20:55] 任务：v1.3.2 身心症状与过程写入增强版落地
+- **大脑规划要求**：身心状态解耦独立、打字实时防抖持久化、空值抹除防御、平滑升级托盘直通服务。
+- **执行改动文件**：
+  - `fs/timemirror/index.html` (前端交互与状态存储)
+  - `fs/timemirror/obsidian_sync_server.py` (局域网写入通道)
+- **测试验证结果**：手机端防抖存储与局域网写入测试通过，Obsidian 对应章节全量入库。
+- **当前状态**：基线版本稳定，等待下一阶段演进。
+
+---
+
+## [2026-11-16 08:35] 任务：v1.4.0 自由分级微步编排与「连赢6次」胜者神经试验场全量落地
+- **决策来源**：Gemini Hydrogen (Cloud Architect) 签发于 ACTIVE_TASK.md
+- **改动文件清单**：
+  - `fs/timemirror/app.js`: 封装 HabitManager 与 WinnerTrialManager，实现微步动态渲染/增删与连胜打卡、当场振动动效与 Obsidian 动态 Markdown 看板；
+  - `fs/timemirror/index.html`: 重构微步卡片挂载容器、增设连赢6次试验场卡片、添加微步编排抽屉与新设战场弹窗；
+  - `fs/timemirror/style.css`: 注入 6 胜圆点 glow 动效、满级 6/6 金色呼吸边框、微步管理列表样式；
+  - `fs/timemirror/obsidian_sync_server.py`: 支持接收动态习惯与 winnerTrials，自适应组装纯文本胜率看板追加至日记暮夜对账；
+  - `fs/timemirror/sw.js`: 缓存版本升级至 `timemirror-v140-dynamic-habits-win6`；
+  - `fs/timemirror/CHANGELOG.md`: 登记 v1.4.0 版本演化。
+- **本地验证结果**：
+  - `python -m py_compile` 语法检查 100% 通过；
+  - `node -c app.js` 前端语法检查 100% 通过；
+  - 执行 `test_sync.py` 自动化测试，模拟局域网直通写入 Obsidian 知行日志断言全部通过（动态微步打勾、胜者看板 [████░░] 格式无瑕疵）。
+- **遗留/下一阶段**：代码就绪，已封版稳定，随时可推至 GitHub Pages 或在手机端使用。
+---

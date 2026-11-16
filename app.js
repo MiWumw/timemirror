@@ -43,6 +43,185 @@ function getTodayString() {
   return `${year}-${month}-${day}`;
 }
 
+// ==========================================
+// 习惯管理与连赢6次试验场数据管理器 (Habit & Winner Trials)
+// ==========================================
+const DEFAULT_HABITS_CONFIG = {
+  version: 1,
+  updatedAt: "2026-11-16T09:00:00Z",
+  baseline: [
+    { id: "base_1", legacyKey: "meditation", name: "晨起调息/冥想", desc: "呼吸吐纳 3 分钟，安抚心神", order: 1 },
+    { id: "base_2", legacyKey: "baduanjin", name: "八段锦 1 遍", desc: "固表强身，温和疏通气血", order: 2 },
+    { id: "base_3", legacyKey: "posture3", name: "体态调整 3 动作", desc: "正骨收腹沉肩，脊柱胸廓伸展", order: 3 }
+  ],
+  advanced: [
+    { id: "adv_1", legacyKey: "yijinjing", name: "易筋经 / 五脏逼毒", desc: "舒筋活络，倪师吐纳法", order: 1 },
+    { id: "adv_2", legacyKey: "mabu", name: "站桩 / 四平马步", desc: "下盘下沉 3~5 分钟，筑基固本", order: 2 },
+    { id: "adv_3", legacyKey: "sleepMeditation", name: "睡前冥想", desc: "内观静心，引火归元", order: 3 },
+    { id: "adv_4", legacyKey: "calisthenics", name: "囚徒健身", desc: "推/拉/核心选练，慢速控制", order: 4 }
+  ]
+};
+
+const DEFAULT_WINNER_TRIALS = {
+  version: 1,
+  activeTrials: [
+    {
+      id: "trial_default_01",
+      name: "早晚温水洗漱",
+      target: 6,
+      currentWins: 0,
+      status: "active",
+      createdAt: "2026-11-16",
+      history: [],
+      cycleCount: 1
+    }
+  ],
+  graduatedTrials: []
+};
+
+const HabitManager = {
+  getConfig() {
+    let cfg = StorageAdapter.load('habits_config', null);
+    if (!cfg || !cfg.baseline || !cfg.advanced) {
+      cfg = JSON.parse(JSON.stringify(DEFAULT_HABITS_CONFIG));
+      this.saveConfig(cfg);
+    }
+    return cfg;
+  },
+  saveConfig(cfg) {
+    cfg.updatedAt = new Date().toISOString();
+    StorageAdapter.save('habits_config', cfg);
+  },
+  getHabits() {
+    return this.getConfig();
+  },
+  addHabit(type, name, desc) {
+    const cfg = this.getConfig();
+    const list = type === 'advanced' ? cfg.advanced : cfg.baseline;
+    const prefix = type === 'advanced' ? 'adv_' : 'base_';
+    const newId = prefix + Date.now();
+    const order = list.length + 1;
+    const newItem = { id: newId, name: name.trim(), desc: (desc || '').trim(), order };
+    list.push(newItem);
+    this.saveConfig(cfg);
+    return newItem;
+  },
+  updateHabit(id, data) {
+    const cfg = this.getConfig();
+    let found = cfg.baseline.find(h => h.id === id);
+    if (!found) found = cfg.advanced.find(h => h.id === id);
+    if (found) {
+      if (data.name !== undefined) found.name = data.name.trim();
+      if (data.desc !== undefined) found.desc = data.desc.trim();
+      if (data.order !== undefined) found.order = Number(data.order);
+      this.saveConfig(cfg);
+    }
+    return found;
+  },
+  deleteHabit(id) {
+    const cfg = this.getConfig();
+    cfg.baseline = cfg.baseline.filter(h => h.id !== id);
+    cfg.advanced = cfg.advanced.filter(h => h.id !== id);
+    this.saveConfig(cfg);
+  }
+};
+
+const WinnerTrialManager = {
+  getData() {
+    let data = StorageAdapter.load('winner_trials', null);
+    if (!data || !Array.isArray(data.activeTrials)) {
+      data = JSON.parse(JSON.stringify(DEFAULT_WINNER_TRIALS));
+      this.saveData(data);
+    }
+    return data;
+  },
+  saveData(data) {
+    StorageAdapter.save('winner_trials', data);
+  },
+  getActiveTrials() {
+    return this.getData().activeTrials || [];
+  },
+  getGraduatedTrials() {
+    return this.getData().graduatedTrials || [];
+  },
+  addTrial(name, target = 6) {
+    const data = this.getData();
+    const newTrial = {
+      id: 'trial_' + Date.now(),
+      name: name.trim(),
+      target: target || 6,
+      currentWins: 0,
+      status: 'active',
+      createdAt: getTodayString(),
+      history: [],
+      cycleCount: 1
+    };
+    data.activeTrials.push(newTrial);
+    this.saveData(data);
+    return newTrial;
+  },
+  toggleWinToday(trialId) {
+    const data = this.getData();
+    const trial = data.activeTrials.find(t => t.id === trialId);
+    if (!trial) return null;
+    const today = getTodayString();
+    if (!Array.isArray(trial.history)) trial.history = [];
+    
+    const todayIdx = trial.history.indexOf(today);
+    let isWin = false;
+    if (todayIdx >= 0) {
+      trial.history.splice(todayIdx, 1);
+      trial.currentWins = Math.max(0, (trial.currentWins || 1) - 1);
+      isWin = false;
+    } else {
+      trial.history.push(today);
+      trial.currentWins = Math.min(trial.target || 6, (trial.currentWins || 0) + 1);
+      isWin = true;
+    }
+    this.saveData(data);
+    return {
+      trial,
+      isWin,
+      currentWins: trial.currentWins,
+      isCompleted: trial.currentWins >= (trial.target || 6)
+    };
+  },
+  graduateTrial(trialId) {
+    const data = this.getData();
+    const idx = data.activeTrials.findIndex(t => t.id === trialId);
+    if (idx >= 0) {
+      const trial = data.activeTrials.splice(idx, 1)[0];
+      trial.status = 'graduated';
+      trial.graduatedAt = getTodayString();
+      if (!Array.isArray(data.graduatedTrials)) data.graduatedTrials = [];
+      data.graduatedTrials.unshift(trial);
+      this.saveData(data);
+      return trial;
+    }
+    return null;
+  },
+  resetTrial(trialId, newName) {
+    const data = this.getData();
+    const trial = data.activeTrials.find(t => t.id === trialId);
+    if (trial) {
+      if (newName && newName.trim()) trial.name = newName.trim();
+      trial.cycleCount = (trial.cycleCount || 1) + 1;
+      trial.currentWins = 0;
+      trial.history = [];
+      trial.status = 'active';
+      this.saveData(data);
+      return trial;
+    }
+    return null;
+  },
+  deleteTrial(trialId) {
+    const data = this.getData();
+    data.activeTrials = data.activeTrials.filter(t => t.id !== trialId);
+    data.graduatedTrials = (data.graduatedTrials || []).filter(t => t.id !== trialId);
+    this.saveData(data);
+  }
+};
+
 function loadCategories() {
   return StorageAdapter.load('categories', DEFAULT_CATEGORIES);
 }
@@ -225,6 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDailyReflectionSection();
   renderDailyWeightSection();
   renderHabitsSection();
+  renderWinnerTrials();
   renderBodyStateSection();
   updateUI();
   registerServiceWorker();
@@ -401,27 +581,7 @@ function initEventListeners() {
     });
   }
 
-  // 践行微步分级打卡事件
-  document.querySelectorAll('.habit-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-      if (e.target.tagName !== 'INPUT') {
-        const key = item.dataset.habit;
-        if (key) toggleHabit(key);
-      }
-    });
-    const chk = item.querySelector('.habit-checkbox');
-    if (chk) {
-      chk.addEventListener('change', () => {
-        const key = item.dataset.habit;
-        if (key) {
-          if (!state.habits[state.currentDate]) state.habits[state.currentDate] = {};
-          state.habits[state.currentDate][key] = chk.checked;
-          saveHabits();
-          renderHabitsSection();
-        }
-      });
-    }
-  });
+  // 践行微步与连赢6次动态打卡事件由 renderHabitsSection() 与 renderWinnerTrials() 挂载驱动
 
   // 身心觉知芯片点选事件
   document.querySelectorAll('#groupEnergyScore .score-btn').forEach(btn => {
@@ -504,6 +664,74 @@ function initEventListeners() {
 
   const btnResetDefaultCategories = document.getElementById('btnResetDefaultCategories');
   if (btnResetDefaultCategories) btnResetDefaultCategories.addEventListener('click', handleResetDefaultCategories);
+
+  // Habits Manager Modal Listeners
+  const btnManageHabits = document.getElementById('btn-manage-habits');
+  if (btnManageHabits) btnManageHabits.addEventListener('click', openHabitsModal);
+
+  const habitsModalCloseBtn = document.getElementById('habitsModalCloseBtn');
+  if (habitsModalCloseBtn) habitsModalCloseBtn.addEventListener('click', closeHabitsModal);
+
+  const habitsModal = document.getElementById('habitsModal');
+  if (habitsModal) {
+    habitsModal.addEventListener('click', (e) => {
+      if (e.target === habitsModal) closeHabitsModal();
+    });
+  }
+
+  const btnSubmitNewHabit = document.getElementById('btnSubmitNewHabit');
+  if (btnSubmitNewHabit) {
+    btnSubmitNewHabit.addEventListener('click', () => {
+      const typeSel = document.getElementById('newHabitType');
+      const nameInp = document.getElementById('newHabitName');
+      const descInp = document.getElementById('newHabitDesc');
+      const name = nameInp ? nameInp.value.trim() : '';
+      const desc = descInp ? descInp.value.trim() : '';
+      const type = typeSel ? typeSel.value : 'baseline';
+      if (!name) {
+        alert('请输入微步名称！');
+        return;
+      }
+      HabitManager.addHabit(type, name, desc);
+      if (nameInp) nameInp.value = '';
+      if (descInp) descInp.value = '';
+      renderHabitsManageList();
+      renderHabitsSection();
+      showToast(`已添加${type === 'advanced' ? '进阶' : '保底'}微步「${name}」`);
+    });
+  }
+
+  // Winner Trial Modal Listeners
+  const btnAddTrial = document.getElementById('btn-add-trial');
+  if (btnAddTrial) btnAddTrial.addEventListener('click', openTrialModal);
+
+  const trialModalCloseBtn = document.getElementById('trialModalCloseBtn');
+  if (trialModalCloseBtn) trialModalCloseBtn.addEventListener('click', closeTrialModal);
+
+  const trialModal = document.getElementById('trialModal');
+  if (trialModal) {
+    trialModal.addEventListener('click', (e) => {
+      if (e.target === trialModal) closeTrialModal();
+    });
+  }
+
+  const btnSubmitTrial = document.getElementById('btnSubmitTrial');
+  if (btnSubmitTrial) {
+    btnSubmitTrial.addEventListener('click', () => {
+      const nameInp = document.getElementById('trialNameInput');
+      const targetInp = document.getElementById('trialTargetInput');
+      const name = nameInp ? nameInp.value.trim() : '';
+      const target = targetInp ? parseInt(targetInp.value, 10) || 6 : 6;
+      if (!name) {
+        alert('请输入小战场目标名称！');
+        return;
+      }
+      WinnerTrialManager.addTrial(name, target);
+      closeTrialModal();
+      renderWinnerTrials();
+      showToast(`🎯 已设立新战场「${name}」！连胜 6 次突触稳固`);
+    });
+  }
 
   // Settings actions
   const btnLoadSample = document.getElementById('btnLoadSample');
@@ -936,6 +1164,7 @@ function renderReviewTab() {
   renderDailyPlanSection();
   renderDailyExecutionSection();
   renderHabitsSection();
+  renderWinnerTrials();
   renderDailyReflectionSection();
 }
 
@@ -1502,18 +1731,85 @@ function handleBodyStateSelect(type, val) {
 }
 
 function renderHabitsSection() {
-  const habits = state.habits[state.currentDate] || {};
-  const habitKeys = ['meditation', 'baduanjin', 'posture3', 'yijinjing', 'mabu', 'sleepMeditation', 'calisthenics'];
+  const container = document.getElementById('habits-dynamic-container');
+  if (!container) return;
 
-  habitKeys.forEach(key => {
-    const isChecked = !!habits[key];
-    const chk = document.getElementById(`chk_${key}`);
-    if (chk) chk.checked = isChecked;
-    const parentLabel = document.querySelector(`.habit-item[data-habit="${key}"]`);
-    if (parentLabel) parentLabel.classList.toggle('checked', isChecked);
+  const cfg = HabitManager.getHabits();
+  const habits = state.habits[state.currentDate] || {};
+
+  let html = '';
+
+  // 1. 🟢 保底线
+  html += `
+    <div style="margin-top: 10px;">
+      <div style="font-size: 0.78rem; font-weight: 700; color: #047857; display: flex; align-items: center; justify-content: space-between;">
+        <span>🟢 【保底线】不可失败的基础步 (${cfg.baseline.length} 项，做完即全天成功)</span>
+      </div>
+      <div class="habit-checklist" id="baselineHabitsList">
+  `;
+
+  if (cfg.baseline.length === 0) {
+    html += `<div style="font-size:0.75rem; color:var(--text-muted); padding: 8px;">暂无保底步，点击右上角【⚙️ 编排】添加</div>`;
+  } else {
+    cfg.baseline.forEach(h => {
+      const isChecked = !!(habits[h.id] || (h.legacyKey && habits[h.legacyKey]));
+      html += `
+        <label class="habit-item ${isChecked ? 'checked' : ''}" data-habit="${h.id}" data-legacy="${h.legacyKey || ''}">
+          <input type="checkbox" class="habit-checkbox" id="chk_${h.id}" ${isChecked ? 'checked' : ''}>
+          <span>${escapeHtml(h.name)} ${h.desc ? `<small style="opacity:0.75; font-size:0.75rem;">(${escapeHtml(h.desc)})</small>` : ''}</span>
+        </label>
+      `;
+    });
+  }
+  html += `</div></div>`;
+
+  // 2. 🟡 进阶项
+  html += `
+    <div style="margin-top: 14px;">
+      <div style="font-size: 0.78rem; font-weight: 700; color: #B45309; display: flex; align-items: center; justify-content: space-between;">
+        <span>🟡 【进阶项】状态充沛时的加分步 (根据精力任选 1~2 项，不强求)</span>
+      </div>
+      <div class="habit-checklist" id="bonusHabitsList">
+  `;
+
+  if (cfg.advanced.length === 0) {
+    html += `<div style="font-size:0.75rem; color:var(--text-muted); padding: 8px;">暂无进阶步，点击右上角【⚙️ 编排】添加</div>`;
+  } else {
+    cfg.advanced.forEach(h => {
+      const isChecked = !!(habits[h.id] || (h.legacyKey && habits[h.legacyKey]));
+      html += `
+        <label class="habit-item ${isChecked ? 'checked' : ''}" data-habit="${h.id}" data-legacy="${h.legacyKey || ''}">
+          <input type="checkbox" class="habit-checkbox" id="chk_${h.id}" ${isChecked ? 'checked' : ''}>
+          <span>${escapeHtml(h.name)} ${h.desc ? `<small style="opacity:0.75; font-size:0.75rem;">(${escapeHtml(h.desc)})</small>` : ''}</span>
+        </label>
+      `;
+    });
+  }
+  html += `</div></div>`;
+
+  container.innerHTML = html;
+
+  // 绑定打卡点击事件
+  container.querySelectorAll('.habit-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.tagName !== 'INPUT') {
+        const id = item.dataset.habit;
+        const legacyKey = item.dataset.legacy;
+        if (id) toggleHabit(id, legacyKey);
+      }
+    });
+    const chk = item.querySelector('.habit-checkbox');
+    if (chk) {
+      chk.addEventListener('change', () => {
+        const id = item.dataset.habit;
+        const legacyKey = item.dataset.legacy;
+        if (id) toggleHabit(id, legacyKey);
+      });
+    }
   });
 
-  const baseAccomplished = !!(habits.meditation && habits.baduanjin && habits.posture3);
+  // 保底成就徽章判定
+  const baseAccomplished = cfg.baseline.length > 0 && cfg.baseline.every(h => !!(habits[h.id] || (h.legacyKey && habits[h.legacyKey])));
   const badge = document.getElementById('habitBaseBadge');
   if (badge) {
     if (baseAccomplished) {
@@ -1530,13 +1826,235 @@ function renderHabitsSection() {
   }
 }
 
-function toggleHabit(habitKey) {
+function toggleHabit(habitId, legacyKey) {
   if (!state.habits[state.currentDate]) {
     state.habits[state.currentDate] = {};
   }
-  state.habits[state.currentDate][habitKey] = !state.habits[state.currentDate][habitKey];
+  const currentVal = !!(state.habits[state.currentDate][habitId] || (legacyKey && state.habits[state.currentDate][legacyKey]));
+  const newVal = !currentVal;
+  state.habits[state.currentDate][habitId] = newVal;
+  if (legacyKey) {
+    state.habits[state.currentDate][legacyKey] = newVal;
+  }
   saveHabits();
   renderHabitsSection();
+}
+
+function renderWinnerTrials() {
+  const container = document.getElementById('winner-trials-container');
+  if (!container) return;
+
+  const trials = WinnerTrialManager.getActiveTrials();
+  const today = getTodayString();
+
+  if (trials.length === 0) {
+    container.innerHTML = `
+      <div style="font-size: 0.78rem; color: var(--text-muted); padding: 12px 6px; text-align: center;">
+        暂无进行中的试验战场。点击右上角【+ 新设战场】开启一次连赢6次神经重构！
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  trials.forEach(trial => {
+    const target = trial.target || 6;
+    const wins = trial.currentWins || 0;
+    const isCompleted = wins >= target;
+    const isWonToday = Array.isArray(trial.history) && trial.history.includes(today);
+
+    // 渲染进度圆点
+    let dotsHtml = '';
+    for (let i = 1; i <= target; i++) {
+      const isActive = i <= wins;
+      const isTodayWinDot = isWonToday && i === wins;
+      dotsHtml += `
+        <div class="winner-dot ${isActive ? 'active' : ''} ${isTodayWinDot ? 'today-won' : ''}" title="第 ${i} 胜">
+          ${isActive ? '●' : i}
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="trial-card-item ${isCompleted ? 'completed' : ''}" id="trial_card_${trial.id}">
+        <div class="trial-header">
+          <div class="trial-name">
+            <span>🎯 ${escapeHtml(trial.name)}</span>
+            <span class="trial-cycle-tag">第 ${trial.cycleCount || 1} 轮 · ${wins}/${target} 胜</span>
+          </div>
+          <button type="button" class="btn-trial-del" data-trial-id="${trial.id}" title="删除该战场">✕</button>
+        </div>
+
+        <div class="trial-body">
+          <div class="winner-dots-row">
+            ${dotsHtml}
+          </div>
+
+          <div class="trial-actions-row">
+            <button type="button" class="btn-win-today ${isWonToday ? 'won' : ''}" data-trial-id="${trial.id}">
+              ${isWonToday ? '✨ 今日已锁定胜利！(点击撤销)' : '⚡ + 赢下今日 (当场做标记)'}
+            </button>
+          </div>
+
+          ${isCompleted ? `
+            <div class="trial-decision-bar">
+              <button type="button" class="btn-trial-decision btn-trial-graduate" data-trial-id="${trial.id}">
+                🎓 神经已固化 · 毕业换战场
+              </button>
+              <button type="button" class="btn-trial-decision btn-trial-reset" data-trial-id="${trial.id}">
+                🔄 开启下一轮 6 次
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+
+  // 绑定今日赢下事件
+  container.querySelectorAll('.btn-win-today').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const trialId = btn.dataset.trialId;
+      const res = WinnerTrialManager.toggleWinToday(trialId);
+      if (res) {
+        if (res.isWin) {
+          try { navigator.vibrate?.([30, 50, 30]); } catch(e) {}
+          showToast(`🎉 已锁定今日胜利！突触回路稳固度：${res.currentWins}/${res.trial.target || 6}`);
+        } else {
+          showToast(`已撤销今日胜利标记 (${res.currentWins}/${res.trial.target || 6})`);
+        }
+        renderWinnerTrials();
+      }
+    });
+  });
+
+  // 绑定毕业归档事件
+  container.querySelectorAll('.btn-trial-graduate').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const trialId = btn.dataset.trialId;
+      WinnerTrialManager.graduateTrial(trialId);
+      showToast('🎓 恭喜！胜利剂量已满，战场已顺利毕业归档！');
+      renderWinnerTrials();
+    });
+  });
+
+  // 绑定下一轮循环事件
+  container.querySelectorAll('.btn-trial-reset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const trialId = btn.dataset.trialId;
+      const trial = WinnerTrialManager.getActiveTrials().find(t => t.id === trialId);
+      const newName = prompt('是否调整战场名称？直接确认则保留原名开启下一轮：', trial ? trial.name : '');
+      if (newName !== null) {
+        WinnerTrialManager.resetTrial(trialId, newName);
+        showToast('🔄 已开启新一轮连赢挑战！');
+        renderWinnerTrials();
+      }
+    });
+  });
+
+  // 绑定删除事件
+  container.querySelectorAll('.btn-trial-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const trialId = btn.dataset.trialId;
+      if (confirm('确定要删除此试验战场吗？')) {
+        WinnerTrialManager.deleteTrial(trialId);
+        showToast('已删除试验战场');
+        renderWinnerTrials();
+      }
+    });
+  });
+}
+
+function openHabitsModal() {
+  const modal = document.getElementById('habitsModal');
+  if (modal) {
+    renderHabitsManageList();
+    modal.classList.add('open');
+  }
+}
+
+function closeHabitsModal() {
+  const modal = document.getElementById('habitsModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function renderHabitsManageList() {
+  const container = document.getElementById('habitsManageListContainer');
+  if (!container) return;
+
+  const cfg = HabitManager.getHabits();
+  let html = '';
+
+  // 🟢 保底线列表
+  html += `
+    <div style="font-size: 0.8rem; font-weight: 700; color: #047857; margin-bottom: 4px;">🟢 保底线（基础步，做完即全天成功）</div>
+  `;
+  if (cfg.baseline.length === 0) {
+    html += `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">暂无保底步</div>`;
+  } else {
+    cfg.baseline.forEach(h => {
+      html += `
+        <div class="habit-manage-item">
+          <div class="habit-manage-info">
+            <span class="habit-manage-name">${escapeHtml(h.name)}</span>
+            ${h.desc ? `<span class="habit-manage-desc">${escapeHtml(h.desc)}</span>` : ''}
+          </div>
+          <button type="button" class="btn-delete-habit" data-id="${h.id}" title="删除该微步">✕</button>
+        </div>
+      `;
+    });
+  }
+
+  // 🟡 进阶项列表
+  html += `
+    <div style="font-size: 0.8rem; font-weight: 700; color: #B45309; margin-top: 10px; margin-bottom: 4px;">🟡 进阶项（加分步，根据精力选做）</div>
+  `;
+  if (cfg.advanced.length === 0) {
+    html += `<div style="font-size: 0.75rem; color: var(--text-muted);">暂无进阶步</div>`;
+  } else {
+    cfg.advanced.forEach(h => {
+      html += `
+        <div class="habit-manage-item">
+          <div class="habit-manage-info">
+            <span class="habit-manage-name">${escapeHtml(h.name)}</span>
+            ${h.desc ? `<span class="habit-manage-desc">${escapeHtml(h.desc)}</span>` : ''}
+          </div>
+          <button type="button" class="btn-delete-habit" data-id="${h.id}" title="删除该微步">✕</button>
+        </div>
+      `;
+    });
+  }
+
+  container.innerHTML = html;
+
+  // 绑定删除按钮
+  container.querySelectorAll('.btn-delete-habit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      if (confirm('确定要删除此打卡项吗？')) {
+        HabitManager.deleteHabit(id);
+        renderHabitsManageList();
+        renderHabitsSection();
+        showToast('已删除打卡项');
+      }
+    });
+  });
+}
+
+function openTrialModal() {
+  const modal = document.getElementById('trialModal');
+  if (modal) {
+    const nameInp = document.getElementById('trialNameInput');
+    if (nameInp) nameInp.value = '';
+    modal.classList.add('open');
+  }
+}
+
+function closeTrialModal() {
+  const modal = document.getElementById('trialModal');
+  if (modal) modal.classList.remove('open');
 }
 
 // 5. 保存知行合流整套数据
@@ -2014,19 +2532,47 @@ function generateFullZhixingMarkdown(dateStr) {
   }
   sections.push('');
 
-  // 第二部分：每日践行微步 (分级打卡)
+  // 第二部分：每日践行微步 (分级打卡 · 动态自适应)
   const habits = state.habits[dateStr] || {};
-  sections.push('### 🟢 【保底线】不可失败的基础步（耗时约 20 分钟，做完即算全天成功）');
-  sections.push(`- [${habits.meditation ? 'x' : ' '}] 晨起调息/冥想（5~10分钟，安抚心神、觉察呼吸）`);
-  sections.push(`- [${habits.baduanjin ? 'x' : ' '}] 八段锦 1 遍（温和疏通经络气血）`);
-  sections.push(`- [${habits.posture3 ? 'x' : ' '}] 体态调整 3 动作（针对含胸驼背、脊柱侧弯、骨盆前倾的温和伸展）`);
+  const cfg = HabitManager.getHabits();
+
+  sections.push('### 🟢 【保底线】不可失败的基础步（做完即算全天成功）');
+  if (cfg.baseline && cfg.baseline.length > 0) {
+    cfg.baseline.forEach(h => {
+      const isChecked = !!(habits[h.id] || (h.legacyKey && habits[h.legacyKey]));
+      const descText = h.desc ? `（${h.desc}）` : '';
+      sections.push(`- [${isChecked ? 'x' : ' '}] ${h.name}${descText}`);
+    });
+  } else {
+    sections.push('- [ ] 暂无保底项');
+  }
   sections.push('');
+
   sections.push('### 🟡 【进阶项】状态充沛时的加分步（根据当天精力自由选做 1~2 项，不强求）');
-  sections.push(`- [${habits.yijinjing ? 'x' : ' '}] 易筋经 / 五脏逼毒`);
-  sections.push(`- [${habits.mabu ? 'x' : ' '}] 四平马步（筑基下盘）`);
-  sections.push(`- [${habits.sleepMeditation ? 'x' : ' '}] 睡前冥想（放松神经）`);
-  sections.push(`- [${habits.calisthenics ? 'x' : ' '}] 囚徒健身（胸肌 / 背肌 / 腹肌选练）`);
+  if (cfg.advanced && cfg.advanced.length > 0) {
+    cfg.advanced.forEach(h => {
+      const isChecked = !!(habits[h.id] || (h.legacyKey && habits[h.legacyKey]));
+      const descText = h.desc ? `（${h.desc}）` : '';
+      sections.push(`- [${isChecked ? 'x' : ' '}] ${h.name}${descText}`);
+    });
+  } else {
+    sections.push('- [ ] 暂无进阶项');
+  }
   sections.push('');
+
+  // 连赢 6 次 · 胜者神经试验场看板
+  const trials = WinnerTrialManager.getActiveTrials();
+  if (trials && trials.length > 0) {
+    sections.push('### 🎯 连赢 6 次 · 胜者神经试验场看板');
+    trials.forEach(t => {
+      const target = t.target || 6;
+      const wins = Math.min(target, t.currentWins || 0);
+      const bar = '█'.repeat(wins) + '░'.repeat(Math.max(0, target - wins));
+      const statusText = wins >= target ? '已达成固化！可毕业换战场' : '攻坚中';
+      sections.push(`- 🎯 **[${t.name}]**：[${bar}] ${wins}/${target} 胜 (第 ${t.cycleCount || 1} 轮 · 状态：${statusText})`);
+    });
+    sections.push('');
+  }
 
   // 第三部分：身体与心绪追踪
   const body = state.bodyState[dateStr] || {};
@@ -2144,6 +2690,8 @@ async function syncToObsidianLAN() {
     reflectionText: reflectionText,
     weight: weightVal !== undefined ? weightVal : null,
     habits: state.habits[state.currentDate] || {},
+    habitsConfig: HabitManager.getHabits(),
+    winnerTrials: WinnerTrialManager.getActiveTrials(),
     bodyState: {
       ...(state.bodyState[state.currentDate] || {}),
       bodySymptomNotes: currentSympNotes,

@@ -46,7 +46,7 @@ def get_lan_ip():
     except Exception:
         return "127.0.0.1"
 
-def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, reflection_text=None, weight=None, habits=None, body_state=None):
+def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, reflection_text=None, weight=None, habits=None, body_state=None, winner_trials=None, habits_config=None):
     """
     精确写入或更新当天 Obsidian 知行日志的核心元素：
     1. 【### 🎯 晨起立志（打算做什么？）】—— 今日计划
@@ -170,17 +170,59 @@ def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, re
     if habits and isinstance(habits, dict):
         habit_patterns = {
             "meditation": r"(-\s*\[[ x]\]\s*)(\s*晨起调息/冥想[^\n]*)",
+            "base_1": r"(-\s*\[[ x]\]\s*)(\s*晨起调息/冥想[^\n]*)",
             "baduanjin": r"(-\s*\[[ x]\]\s*)(\s*八段锦\s*1\s*遍[^\n]*)",
+            "base_2": r"(-\s*\[[ x]\]\s*)(\s*八段锦\s*1\s*遍[^\n]*)",
             "posture3": r"(-\s*\[[ x]\]\s*)(\s*体态调整\s*3\s*动作[^\n]*)",
+            "base_3": r"(-\s*\[[ x]\]\s*)(\s*体态调整\s*3\s*动作[^\n]*)",
             "yijinjing": r"(-\s*\[[ x]\]\s*)(\s*易筋经\s*/\s*五脏逼毒[^\n]*)",
+            "adv_1": r"(-\s*\[[ x]\]\s*)(\s*易筋经\s*/\s*五脏逼毒[^\n]*)",
             "mabu": r"(-\s*\[[ x]\]\s*)(\s*四平马步[^\n]*)",
+            "adv_2": r"(-\s*\[[ x]\]\s*)(\s*四平马步[^\n]*)",
             "sleepMeditation": r"(-\s*\[[ x]\]\s*)(\s*睡前冥想[^\n]*)",
-            "calisthenics": r"(-\s*\[[ x]\]\s*)(\s*囚徒健身[^\n]*)"
+            "adv_3": r"(-\s*\[[ x]\]\s*)(\s*睡前冥想[^\n]*)",
+            "calisthenics": r"(-\s*\[[ x]\]\s*)(\s*囚徒健身[^\n]*)",
+            "adv_4": r"(-\s*\[[ x]\]\s*)(\s*囚徒健身[^\n]*)"
         }
         for h_key, pat in habit_patterns.items():
             if h_key in habits:
                 mark = "[x]" if habits[h_key] else "[ ]"
                 content = re.sub(pat, f"- {mark} \\2", content)
+
+        if habits_config and isinstance(habits_config, dict):
+            all_cfg_items = (habits_config.get("baseline") or []) + (habits_config.get("advanced") or [])
+            for item in all_cfg_items:
+                i_id = item.get("id")
+                i_name = item.get("name")
+                if i_name and i_id and i_id in habits:
+                    mark = "[x]" if habits[i_id] else "[ ]"
+                    p_custom = r"(-\s*\[[ x]\]\s*)(\s*" + re.escape(i_name) + r"[^\n]*)"
+                    content = re.sub(p_custom, f"- {mark} \\2", content)
+
+    # 6.5 更新或写入【连赢 6 次 · 胜者神经试验场看板】
+    if winner_trials and isinstance(winner_trials, list) and len(winner_trials) > 0:
+        trial_lines = []
+        for t in winner_trials:
+            name = t.get("name", "小战场")
+            target = t.get("target", 6)
+            wins = min(target, t.get("currentWins", 0))
+            cycle = t.get("cycleCount", 1)
+            bar = "█" * wins + "░" * max(0, target - wins)
+            status_text = "已达成固化！可毕业换战场" if wins >= target else "攻坚中"
+            trial_lines.append(f"- 🎯 **[{name}]**：[{bar}] {wins}/{target} 胜 (第 {cycle} 轮 · 状态：{status_text})")
+        trial_block = "\n".join(trial_lines)
+
+        p_trial = r"(###\s*🎯\s*连赢\s*6\s*次[^\n]*\n)([\s\S]*?)(?=\n###|\n---|\Z)"
+        m_trial = re.search(p_trial, content)
+        if m_trial:
+            content = content[:m_trial.start()] + f"### 🎯 连赢 6 次 · 胜者神经试验场看板\n{trial_block}\n\n" + content[m_trial.end():]
+        else:
+            p_part3 = r"(#+\s*🌿\s*第三部分|\n###\s*1\.\s*身体状态)"
+            m_part3 = re.search(p_part3, content)
+            if m_part3:
+                content = content[:m_part3.start()] + f"### 🎯 连赢 6 次 · 胜者神经试验场看板\n{trial_block}\n\n---\n\n" + content[m_part3.start():]
+            else:
+                content += f"\n\n### 🎯 连赢 6 次 · 胜者神经试验场看板\n{trial_block}\n"
 
     # 7. 更新【身体与心绪追踪】
     if body_state and isinstance(body_state, dict):
@@ -339,6 +381,8 @@ class SyncHandler(BaseHTTPRequestHandler):
                 weight = data.get("weight", None)
                 habits = data.get("habits", None)
                 body_state = data.get("bodyState", None)
+                winner_trials = data.get("winnerTrials", None)
+                habits_config = data.get("habitsConfig", None)
 
                 # 记录请求排查日志
                 try:
@@ -367,7 +411,9 @@ class SyncHandler(BaseHTTPRequestHandler):
                     reflection_text=reflection_text, 
                     weight=weight,
                     habits=habits,
-                    body_state=body_state
+                    body_state=body_state,
+                    winner_trials=winner_trials,
+                    habits_config=habits_config
                 )
                 code = 200 if success else 500
 

@@ -280,63 +280,42 @@
         </div>
       </div>
 
-      <!-- 践行微步 · 极简身心分级打卡 (保底线与进阶项) -->
+      <!-- 践行微步 · 极简身心分级打卡 (保底线与进阶项 · 动态自适应) -->
       <div class="zhixing-card" id="habitCard">
         <div class="zhixing-card-header">
           <div class="zhixing-title">
             <span>🥋 践行微步 · 分级打卡</span>
             <span id="habitBaseBadge" class="auto-save-tag" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;">待完成保底</span>
           </div>
+          <div class="zhixing-actions">
+            <button type="button" id="btn-manage-habits" class="zhixing-tool-btn" title="编排与增删微步习惯">⚙️ 编排</button>
+          </div>
         </div>
         <div class="zhixing-desc">
-          做完不可失败的 3 件基础步即算全天成功；状态充沛时自由加分，轻松无负担（直通 Obsidian 第二部分）
+          做完不可失败的基础步即算全天成功；状态充沛时自由加分，轻松无负担（直通 Obsidian 第二部分）
         </div>
 
-        <!-- 🟢 保底线 -->
-        <div style="margin-top: 10px;">
-          <div style="font-size: 0.78rem; font-weight: 700; color: #047857; display: flex; align-items: center; gap: 4px;">
-            <span>🟢 【保底线】不可失败的基础步 (~20min，做完即全天成功)</span>
+        <!-- 动态挂载容器 -->
+        <div id="habits-dynamic-container"></div>
+      </div>
+
+      <!-- 🎯 连赢 6 次 · 胜者神经试验场 (缩战场·做标记·6次重塑大脑突触) -->
+      <div class="zhixing-card" id="winnerTrialCard" style="border-left: 3px solid #10B981;">
+        <div class="zhixing-card-header">
+          <div class="zhixing-title">
+            <span>🎯 连赢 6 次 · 胜者试验场</span>
+            <span id="winnerTrialBadge" class="auto-save-tag" style="background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0;">🧠 突触可塑性</span>
           </div>
-          <div class="habit-checklist" id="baselineHabitsList">
-            <label class="habit-item" data-habit="meditation">
-              <input type="checkbox" class="habit-checkbox" id="chk_meditation">
-              <span>晨起调息 / 冥想 (5~10min，安抚心神)</span>
-            </label>
-            <label class="habit-item" data-habit="baduanjin">
-              <input type="checkbox" class="habit-checkbox" id="chk_baduanjin">
-              <span>八段锦 1 遍 (温和疏通经络气血)</span>
-            </label>
-            <label class="habit-item" data-habit="posture3">
-              <input type="checkbox" class="habit-checkbox" id="chk_posture3">
-              <span>体态调整 3 动作 (脊柱/胸廓/骨盆温和伸展)</span>
-            </label>
+          <div class="zhixing-actions">
+            <button type="button" id="btn-add-trial" class="zhixing-tool-btn" title="开辟新的连赢6次小战场">+ 新设战场</button>
           </div>
+        </div>
+        <div class="zhixing-desc">
+          浙大胡海岚团队 Science 实验：缩战场至绝对能赢，当场做标记，连赢 6 次改写大脑神经回路！
         </div>
 
-        <!-- 🟡 进阶项 -->
-        <div style="margin-top: 14px;">
-          <div style="font-size: 0.78rem; font-weight: 700; color: #B45309; display: flex; align-items: center; gap: 4px;">
-            <span>🟡 【进阶项】状态充沛时的加分步 (根据精力任选 1~2 项，不强求)</span>
-          </div>
-          <div class="habit-checklist" id="bonusHabitsList">
-            <label class="habit-item" data-habit="yijinjing">
-              <input type="checkbox" class="habit-checkbox" id="chk_yijinjing">
-              <span>易筋经 / 五脏逼毒法 (倪师吐纳法)</span>
-            </label>
-            <label class="habit-item" data-habit="mabu">
-              <input type="checkbox" class="habit-checkbox" id="chk_mabu">
-              <span>四平马步桩 (3~5min 筑基下盘)</span>
-            </label>
-            <label class="habit-item" data-habit="sleepMeditation">
-              <input type="checkbox" class="habit-checkbox" id="chk_sleepMeditation">
-              <span>睡前冥想 / 放松神经 (引火归元)</span>
-            </label>
-            <label class="habit-item" data-habit="calisthenics">
-              <input type="checkbox" class="habit-checkbox" id="chk_calisthenics">
-              <span>囚徒健身 (推/拉/核心选练 慢速控制)</span>
-            </label>
-          </div>
-        </div>
+        <!-- 试验场动态挂载容器 -->
+        <div id="winner-trials-container"></div>
       </div>
 
       <!-- 第三段：复盘反思 · 诚意慎独 (移除误触清空，加入防丢历史快照) -->
@@ -822,6 +801,70 @@
         </p>
         <div id="snapshotsListContainer" style="display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto;">
           <!-- 动态渲染历史快照列表 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Habits Drawer / Manager Modal (践行微步编排抽屉) -->
+    <div id="habitsModal" class="modal-overlay">
+      <div class="bottom-sheet" style="max-height: 85vh;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">⚙️ 践行微步 · 编排与增删</span>
+          <button id="habitsModalCloseBtn" class="sheet-close-btn">✕</button>
+        </div>
+        <p style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+          自由定制你的不可失败保底线与进阶加分步。修改即时生效并同步至 Obsidian 暮夜对账。
+        </p>
+
+        <!-- 新增习惯表单 -->
+        <div style="background: var(--bg-hover); padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 14px;">
+          <div style="font-size: 0.78rem; font-weight: 700; margin-bottom: 8px; color: var(--text);">➕ 添加新微步</div>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; gap: 8px;">
+              <select id="newHabitType" style="flex: 1; padding: 7px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); font-size: 0.8rem;">
+                <option value="baseline">🟢 【保底线】不可失败基础步</option>
+                <option value="advanced">🟡 【进阶项】状态充沛加分步</option>
+              </select>
+              <input type="text" id="newHabitName" placeholder="微步名称 (如: 站桩)" style="flex: 1.2; padding: 7px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); font-size: 0.8rem;">
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="newHabitDesc" placeholder="简短说明/耗时 (可选，如: 3~5分钟)" style="flex: 1; padding: 7px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); font-size: 0.8rem;">
+              <button type="button" id="btnSubmitNewHabit" style="padding: 7px 14px; background: #10B981; color: #FFF; border: none; border-radius: 6px; font-weight: 700; font-size: 0.8rem; cursor: pointer;">添加</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="max-height: 48vh; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;" id="habitsManageListContainer">
+          <!-- 动态渲染管理列表 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Winner Trial Modal (新设连赢6次小战场弹窗) -->
+    <div id="trialModal" class="modal-overlay">
+      <div class="bottom-sheet" style="max-height: 80vh;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">🎯 新设「连赢 6 次」试验战场</span>
+          <button id="trialModalCloseBtn" class="sheet-close-btn">✕</button>
+        </div>
+        <p style="font-size: 0.76rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+          把目标缩到<b>绝对能赢</b>的大小（如：早晚洗漱、喝温水、5分钟冥想）。单日限胜1次，连赢6次改写大脑神经回路！
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+          <div>
+            <label style="font-size: 0.78rem; font-weight: 600; color: var(--text); display: block; margin-bottom: 4px;">战场小目标名称：</label>
+            <input type="text" id="trialNameInput" placeholder="如：早晚温水洗漱 / 托天理三焦1遍" style="width: 100%; padding: 9px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); font-size: 0.85rem; box-sizing: border-box;">
+          </div>
+          <div>
+            <label style="font-size: 0.78rem; font-weight: 600; color: var(--text); display: block; margin-bottom: 4px;">连胜目标次数（科学基线门槛）：</label>
+            <input type="number" id="trialTargetInput" value="6" min="3" max="21" style="width: 100%; padding: 9px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text); font-size: 0.85rem; box-sizing: border-box;">
+          </div>
+          <button type="button" id="btnSubmitTrial" style="padding: 10px; background: #10B981; color: #FFF; border: none; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; margin-top: 6px;">
+            🚀 开启连胜挑战
+          </button>
         </div>
       </div>
     </div>
