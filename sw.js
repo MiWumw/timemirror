@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v140-dynamic-habits-win6';
+const CACHE_NAME = 'timemirror-v140-release';
 const ASSETS = [
   './',
   './index.html',
-  './style.css',
-  './app.js',
+  './style.css?v=1.4.0',
+  './app.js?v=1.4.0',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
