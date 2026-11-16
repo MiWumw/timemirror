@@ -31,3 +31,13 @@
   - 执行 `test_sync.py` 自动化测试，模拟局域网直通写入 Obsidian 知行日志断言全部通过（动态微步打勾、胜者看板 [████░░] 格式无瑕疵）。
 - **遗留/下一阶段**：代码就绪，已封版稳定，随时可推至 GitHub Pages 或在手机端使用。
 ---
+
+## [2026-11-16 09:40] 任务：v1.4.1 解除连赢6次单日限制，胜者丰碑上线
+- **决策来源**：Gemini Hydrogen 手术刀任务 (ACTIVE_TASK.md)
+- **改动文件清单**：
+  - `fs/timemirror/app.js`: 升级 WinnerTrialManager (addWin, undoWin, setWins, graduateTrial, resetTrial)，解除单日限胜 1 次限制，支持极小步高频连胜；renderWinnerTrials 增加交互式步进圆点与【🏛️ 胜者丰碑】折叠展示；
+  - `fs/timemirror/index.html`: 升级为 v1.4.1 · 胜者丰碑版，引入带版本号资源穿透；
+  - `fs/timemirror/sw.js`: 升级缓存键至 `timemirror-v141-winner-trials-fix`。
+- **本地验证结果**：`node -c app.js` 语法验证通过，Git push 成功至 origin main。
+- **遗留/下一阶段**：已实时同步更新至 `code_mirror/` 镜像目录。
+---
