@@ -41,3 +41,13 @@
 - **本地验证结果**：`node -c app.js` 语法验证通过，Git push 成功至 origin main。
 - **遗留/下一阶段**：已实时同步更新至 `code_mirror/` 镜像目录。
 ---
+
+## [2026-11-16 10:20] 任务：紧急修复 Obsidian 模板空文件被覆盖与章节骨架缺失Bug
+- **决策来源**：Gemini Hydrogen 手术刀任务 (ACTIVE_TASK.md)
+- **核心修复**：
+  - `fs/timemirror/obsidian_sync_server.py`: 修复 `write_to_obsidian` 模板防卫逻辑，增加 `(not file_exists) or (not content.strip())` 强制灌注终极知行全套骨架（含立志/对账/慎独、第二部分微步、连赢6次看板、第三部分身心追踪）；增加 `HTTPServer.allow_reuse_address = True` 提升后台重启动态容错；
+  - 修复 `D:\cangku\浮生\04_知行生活\身心纪事\2026-11-16_每日知行日志.md` 今日受损文件，100% 完整复原今日知行全部四大骨架，并无缝融合用户已打卡的时间流水与试验场进度；
+  - 重启本地后台服务并完成 HTTP POST 真实同步断言测试通过（200 OK）；
+  - 同步推送至 GitHub (`main` efb99b1)，并镜像至 `CLOUD_HUB/fs_timemirror/code_mirror/`。
+- **状态**：🟢 全部落地并通过端到端实测验证。
+---
