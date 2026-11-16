@@ -60,23 +60,58 @@ def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, re
     os.makedirs(diary_dir, exist_ok=True)
     target_file = os.path.join(diary_dir, f"{date_str}_每日知行日志.md")
 
-    # 1. 如果文件不存在，从模板自动生成今日日志
-    if not os.path.exists(target_file):
+    # 1. 核心防御：如果文件不存在，或者文件虽然存在但内容为空(例如Obsidian新建的空文件)，必须强制从模板灌注骨架！
+    file_exists = os.path.exists(target_file)
+    content = ""
+    if file_exists:
+        with open(target_file, "r", encoding="utf-8") as f:
+            content = f.read()
+
+    if (not file_exists) or (not content.strip()):
         if os.path.exists(TEMPLATE_PATH):
             with open(TEMPLATE_PATH, "r", encoding="utf-8") as tf:
                 content = tf.read()
             content = content.replace("{{date}}", date_str)
         else:
+            # 兜底终极知行全套骨架（保证任何情况下模板永不缺失）
             content = (
-                f"---\ndate: \"{date_str}\"\ntags:\n  - 知行日志\n---\n\n"
+                f"---\n"
+                f"date: \"{date_str}\"\n"
+                f"tags:\n"
+                f"  - 知行日志\n"
+                f"weight: \n"
+                f"---\n\n"
                 f"# 📅 {date_str} 每日知行与身心修持日志\n\n"
-                f"### 🎯 晨起立志（打算做什么？）\n- [ ] 1. \n\n"
+                f"# 🎯 第一部分 · 知行合流三段式\n\n"
+                f"### 🎯 晨起立志（打算做什么？）\n"
+                f"> 顺应今日身心气能，参考 [[学习项目四阶追踪表]]，每日核心要务不超过 3 件：\n"
+                f"- [ ] 1. \n\n"
                 f"### ⚡ 暮夜对账（实际做了什么？）\n\n"
                 f"### 🪞 诚意慎独（今日得失与明日调适）\n\n"
+                f"---\n\n"
+                f"# 🥋 第二部分 · 每日践行微步（分级打卡）\n\n"
+                f"### 🟢 【保底线】不可失败的基础步（耗时约 20 分钟，做完即算全天成功）\n"
+                f"- [ ] 晨起调息/冥想 (呼吸吐纳 3 分钟，安抚心神)\n"
+                f"- [ ] 八段锦 1 遍 (固表强身，温和疏通气血)\n"
+                f"- [ ] 体态调整 3 动作 (正骨收腹沉肩，脊柱胸廓伸展)\n\n"
+                f"### 🟡 【进阶项】状态充沛加分步（依精力选做，绝无心理负担）\n"
+                f"- [ ] 易筋经 / 五脏逼毒 (舒筋活络，倪师吐纳法)\n"
+                f"- [ ] 站桩 / 四平马步 (下盘下沉 3~5 分钟，筑基固本)\n"
+                f"- [ ] 睡前冥想 (内观静心，引火归元)\n"
+                f"- [ ] 囚徒健身 (推/拉/核心选练，慢速控制)\n\n"
+                f"---\n\n"
+                f"# 🌿 第三部分 · 身体与心绪追踪\n\n"
+                f"### 1. 身体状态与晨起体感\n"
+                f"- **空腹/晨起体重**： kg\n"
+                f"- **晨起精力**： / 5 分（1分沉重疲惫，3分平稳，5分清爽通透）\n"
+                f"- **鼻腔通气**：[ ] 左通右阻 [ ] 右通左阻 [ ] 均通畅 [ ] 均发堵\n"
+                f"- **体态自觉**： / 5 分（脊柱挺拔、胸背自然舒展度）\n"
+                f"- **整日身心状态与症状**： \n\n"
+                f"### 2. 情绪耐受度\n"
+                f"- **今日应激**：[ ] 无明显波澜 [ ] 遇事发紧/心慌 [ ] 陷入焦虑退缩\n"
+                f"- **平复时差**： 分钟（觉察并深呼吸/冥想后回神的速度）\n"
+                f"- **具体过程**： \n\n"
             )
-    else:
-        with open(target_file, "r", encoding="utf-8") as f:
-            content = f.read()
 
     # 2. 更新或写入【体重 (Weight)】
     if weight is not None and str(weight).strip() != "":
@@ -523,6 +558,7 @@ def main():
     icon.run_detached()
 
     # 4. 主线程启动 HTTP 服务监听并阻塞运行
+    HTTPServer.allow_reuse_address = True
     server_address = ("0.0.0.0", PORT)
     httpd_server = HTTPServer(server_address, SyncHandler)
     httpd_server.serve_forever()
