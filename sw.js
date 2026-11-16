@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v140-release';
+const CACHE_NAME = 'timemirror-v141-winner-trials-fix';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.4.0',
-  './app.js?v=1.4.0',
+  './style.css?v=1.4.1',
+  './app.js?v=1.4.1',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

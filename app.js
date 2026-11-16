@@ -160,32 +160,41 @@ const WinnerTrialManager = {
     this.saveData(data);
     return newTrial;
   },
-  toggleWinToday(trialId) {
+  // 随时赢下一局 (+1胜，彻底解除单日只能打卡一次的限制，支持极小步高频连胜)
+  addWin(trialId) {
     const data = this.getData();
     const trial = data.activeTrials.find(t => t.id === trialId);
-    if (!trial) return null;
-    const today = getTodayString();
-    if (!Array.isArray(trial.history)) trial.history = [];
-    
-    const todayIdx = trial.history.indexOf(today);
-    let isWin = false;
-    if (todayIdx >= 0) {
-      trial.history.splice(todayIdx, 1);
-      trial.currentWins = Math.max(0, (trial.currentWins || 1) - 1);
-      isWin = false;
-    } else {
-      trial.history.push(today);
-      trial.currentWins = Math.min(trial.target || 6, (trial.currentWins || 0) + 1);
-      isWin = true;
+    if (!trial) return;
+    if (trial.currentWins < (trial.target || 6)) {
+      trial.currentWins = (trial.currentWins || 0) + 1;
+      trial.history = trial.history || [];
+      trial.history.push({ timestamp: Date.now(), date: getTodayString() });
+      this.saveData(data);
+      if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+      renderWinnerTrials();
     }
-    this.saveData(data);
-    return {
-      trial,
-      isWin,
-      currentWins: trial.currentWins,
-      isCompleted: trial.currentWins >= (trial.target || 6)
-    };
   },
+  // 撤销一局 (-1胜，防止误触)
+  undoWin(trialId) {
+    const data = this.getData();
+    const trial = data.activeTrials.find(t => t.id === trialId);
+    if (!trial || trial.currentWins <= 0) return;
+    trial.currentWins -= 1;
+    if (Array.isArray(trial.history)) trial.history.pop();
+    this.saveData(data);
+    renderWinnerTrials();
+  },
+  // 直接点击步进圆点自由设值
+  setWins(trialId, targetWins) {
+    const data = this.getData();
+    const trial = data.activeTrials.find(t => t.id === trialId);
+    if (!trial) return;
+    trial.currentWins = Math.max(0, Math.min(trial.target || 6, targetWins));
+    this.saveData(data);
+    if (navigator.vibrate) navigator.vibrate(30);
+    renderWinnerTrials();
+  },
+  // 满级毕业归档至【胜者丰碑】
   graduateTrial(trialId) {
     const data = this.getData();
     const idx = data.activeTrials.findIndex(t => t.id === trialId);
@@ -193,13 +202,13 @@ const WinnerTrialManager = {
       const trial = data.activeTrials.splice(idx, 1)[0];
       trial.status = 'graduated';
       trial.graduatedAt = getTodayString();
-      if (!Array.isArray(data.graduatedTrials)) data.graduatedTrials = [];
+      data.graduatedTrials = data.graduatedTrials || [];
       data.graduatedTrials.unshift(trial);
       this.saveData(data);
-      return trial;
+      renderWinnerTrials();
     }
-    return null;
   },
+  // 开启下一轮 6 次循环 (清零重置，继续连赢)
   resetTrial(trialId, newName) {
     const data = this.getData();
     const trial = data.activeTrials.find(t => t.id === trialId);
@@ -210,15 +219,15 @@ const WinnerTrialManager = {
       trial.history = [];
       trial.status = 'active';
       this.saveData(data);
-      return trial;
+      renderWinnerTrials();
     }
-    return null;
   },
   deleteTrial(trialId) {
     const data = this.getData();
     data.activeTrials = data.activeTrials.filter(t => t.id !== trialId);
     data.graduatedTrials = (data.graduatedTrials || []).filter(t => t.id !== trialId);
     this.saveData(data);
+    renderWinnerTrials();
   }
 };
 
@@ -1844,127 +1853,88 @@ function renderWinnerTrials() {
   const container = document.getElementById('winner-trials-container');
   if (!container) return;
 
-  const trials = WinnerTrialManager.getActiveTrials();
-  const today = getTodayString();
+  const data = WinnerTrialManager.getData();
+  const trials = data.activeTrials || [];
+  let html = '';
 
   if (trials.length === 0) {
-    container.innerHTML = `
-      <div style="font-size: 0.78rem; color: var(--text-muted); padding: 12px 6px; text-align: center;">
-        暂无进行中的试验战场。点击右上角【+ 新设战场】开启一次连赢6次神经重构！
-      </div>
-    `;
-    return;
-  }
+    html += '<div style="font-size:0.78rem;color:var(--text-muted);padding:12px 6px;text-align:center;">暂无进行中的试验战场。点击右上角【+ 新设战场】开辟极小新战场！</div>';
+  } else {
+    html += trials.map(trial => {
+      const target = trial.target || 6;
+      const wins = trial.currentWins || 0;
+      const isCompleted = wins >= target;
 
-  let html = '';
-  trials.forEach(trial => {
-    const target = trial.target || 6;
-    const wins = trial.currentWins || 0;
-    const isCompleted = wins >= target;
-    const isWonToday = Array.isArray(trial.history) && trial.history.includes(today);
-
-    // 渲染进度圆点
-    let dotsHtml = '';
-    for (let i = 1; i <= target; i++) {
-      const isActive = i <= wins;
-      const isTodayWinDot = isWonToday && i === wins;
-      dotsHtml += `
-        <div class="winner-dot ${isActive ? 'active' : ''} ${isTodayWinDot ? 'today-won' : ''}" title="第 ${i} 胜">
-          ${isActive ? '●' : i}
-        </div>
-      `;
-    }
-
-    html += `
-      <div class="trial-card-item ${isCompleted ? 'completed' : ''}" id="trial_card_${trial.id}">
-        <div class="trial-header">
-          <div class="trial-name">
-            <span>🎯 ${escapeHtml(trial.name)}</span>
-            <span class="trial-cycle-tag">第 ${trial.cycleCount || 1} 轮 · ${wins}/${target} 胜</span>
+      let dotsHtml = '';
+      for (let i = 1; i <= target; i++) {
+        const isWon = i <= wins;
+        dotsHtml += `
+          <div class="winner-dot ${isWon ? 'active today-won' : ''}" 
+               onclick="WinnerTrialManager.setWins('${trial.id}', ${isWon && i === wins ? i - 1 : i})"
+               style="cursor:pointer;" title="点击设置到 ${i} 胜">
+            ${isWon ? '●' : i}
           </div>
-          <button type="button" class="btn-trial-del" data-trial-id="${trial.id}" title="删除该战场">✕</button>
-        </div>
+        `;
+      }
 
-        <div class="trial-body">
-          <div class="winner-dots-row">
+      let actionButtons = '';
+      if (isCompleted) {
+        actionButtons = `
+          <div class="trial-decision-bar" style="display:flex;gap:8px;margin-top:8px;">
+            <button type="button" class="btn-trial-decision btn-trial-graduate" onclick="WinnerTrialManager.graduateTrial('${trial.id}')">🎓 神经已固化·入驻丰碑</button>
+            <button type="button" class="btn-trial-decision btn-trial-reset" onclick="WinnerTrialManager.resetTrial('${trial.id}')">🔄 开启第 ${(trial.cycleCount || 1) + 1} 轮</button>
+          </div>
+        `;
+      } else {
+        actionButtons = `
+          <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+            <button type="button" class="btn-win-today" style="flex:1;" onclick="WinnerTrialManager.addWin('${trial.id}')">
+              ⚡ 赢下一局 (+1胜)
+            </button>
+            ${wins > 0 ? `
+              <button type="button" class="btn-secondary" style="padding:6px 12px;font-size:0.75rem;" onclick="WinnerTrialManager.undoWin('${trial.id}')">
+                ↩ 撤销
+              </button>
+            ` : ''}
+          </div>
+        `;
+      }
+
+      return `
+        <div class="trial-card-item ${isCompleted ? 'completed' : ''}" style="margin-top:10px;">
+          <div class="trial-header" style="display:flex;justify-content:space-between;align-items:center;">
+            <div class="trial-name">🎯 ${escapeHtml(trial.name)} <span class="trial-cycle-tag">第 ${trial.cycleCount || 1} 轮 · ${wins}/${target} 胜</span></div>
+            <button type="button" class="btn-trial-del" onclick="WinnerTrialManager.deleteTrial('${trial.id}')" title="删除该战场">✕</button>
+          </div>
+          <div class="winner-dots-row" style="margin-top:8px;">
             ${dotsHtml}
           </div>
-
-          <div class="trial-actions-row">
-            <button type="button" class="btn-win-today ${isWonToday ? 'won' : ''}" data-trial-id="${trial.id}">
-              ${isWonToday ? '✨ 今日已锁定胜利！(点击撤销)' : '⚡ + 赢下今日 (当场做标记)'}
-            </button>
-          </div>
-
-          ${isCompleted ? `
-            <div class="trial-decision-bar">
-              <button type="button" class="btn-trial-decision btn-trial-graduate" data-trial-id="${trial.id}">
-                🎓 神经已固化 · 毕业换战场
-              </button>
-              <button type="button" class="btn-trial-decision btn-trial-reset" data-trial-id="${trial.id}">
-                🔄 开启下一轮 6 次
-              </button>
-            </div>
-          ` : ''}
+          ${actionButtons}
         </div>
-      </div>
+      `;
+    }).join('');
+  }
+
+  // 底部展示【🏛️ 胜者丰碑 (已固化神经回路)】
+  if (data.graduatedTrials && data.graduatedTrials.length > 0) {
+    html += `
+      <details style="margin-top:14px;border-top:1px dashed var(--border);padding-top:10px;">
+        <summary style="font-size:0.78rem;font-weight:700;color:var(--text-muted);cursor:pointer;">
+          🏛️ 胜者丰碑 · 已固化神经回路 (${data.graduatedTrials.length})
+        </summary>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
+          ${data.graduatedTrials.map(g => `
+            <div style="display:flex;justify-content:space-between;font-size:0.75rem;padding:6px 10px;background:var(--card-bg);border-radius:6px;border:1px solid var(--border);">
+              <span>🏆 <b>${escapeHtml(g.name)}</b> (达成 6 胜)</span>
+              <span style="color:var(--text-muted);">${g.graduatedAt || ''}</span>
+            </div>
+          `).join('')}
+        </div>
+      </details>
     `;
-  });
+  }
 
   container.innerHTML = html;
-
-  // 绑定今日赢下事件
-  container.querySelectorAll('.btn-win-today').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const trialId = btn.dataset.trialId;
-      const res = WinnerTrialManager.toggleWinToday(trialId);
-      if (res) {
-        if (res.isWin) {
-          try { navigator.vibrate?.([30, 50, 30]); } catch(e) {}
-          showToast(`🎉 已锁定今日胜利！突触回路稳固度：${res.currentWins}/${res.trial.target || 6}`);
-        } else {
-          showToast(`已撤销今日胜利标记 (${res.currentWins}/${res.trial.target || 6})`);
-        }
-        renderWinnerTrials();
-      }
-    });
-  });
-
-  // 绑定毕业归档事件
-  container.querySelectorAll('.btn-trial-graduate').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const trialId = btn.dataset.trialId;
-      WinnerTrialManager.graduateTrial(trialId);
-      showToast('🎓 恭喜！胜利剂量已满，战场已顺利毕业归档！');
-      renderWinnerTrials();
-    });
-  });
-
-  // 绑定下一轮循环事件
-  container.querySelectorAll('.btn-trial-reset').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const trialId = btn.dataset.trialId;
-      const trial = WinnerTrialManager.getActiveTrials().find(t => t.id === trialId);
-      const newName = prompt('是否调整战场名称？直接确认则保留原名开启下一轮：', trial ? trial.name : '');
-      if (newName !== null) {
-        WinnerTrialManager.resetTrial(trialId, newName);
-        showToast('🔄 已开启新一轮连赢挑战！');
-        renderWinnerTrials();
-      }
-    });
-  });
-
-  // 绑定删除事件
-  container.querySelectorAll('.btn-trial-del').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const trialId = btn.dataset.trialId;
-      if (confirm('确定要删除此试验战场吗？')) {
-        WinnerTrialManager.deleteTrial(trialId);
-        showToast('已删除试验战场');
-        renderWinnerTrials();
-      }
-    });
-  });
 }
 
 function openHabitsModal() {
