@@ -1,5 +1,5 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v150-purge-sample-records';
+const CACHE_NAME = 'timemirror-v150-pull-lock-active';
 const ASSETS = [
   './',
   './index.html',

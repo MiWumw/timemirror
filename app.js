@@ -672,6 +672,9 @@ function initEventListeners() {
   const btnCloudSync = document.getElementById('btn-cloud-sync');
   if (btnCloudSync) btnCloudSync.addEventListener('click', handleCloudSync);
 
+  const btnCloudPull = document.getElementById('btn-cloud-pull');
+  if (btnCloudPull) btnCloudPull.addEventListener('click', handleCloudPull);
+
   const btnCloudSyncInReview = document.getElementById('btnCloudSyncInReview');
   if (btnCloudSyncInReview) btnCloudSyncInReview.addEventListener('click', handleCloudSync);
 
@@ -3293,7 +3296,12 @@ const CloudSyncAdapter = {
   }
 };
 
+let isCloudPulling = false;
 async function handleCloudPull() {
+  if (isCloudPulling) {
+    showToast('⏳ 正在同步拉取中，请勿重复点击');
+    return;
+  }
   const url = CloudSyncAdapter.getUrl();
   if (!url) {
     showToast('💡 请先配置谷歌云桥 URL');
@@ -3302,9 +3310,11 @@ async function handleCloudPull() {
   }
   const btn = document.getElementById('btn-cloud-pull');
   const oldText = btn ? btn.innerHTML : '';
+  isCloudPulling = true;
   if (btn) {
     btn.innerHTML = '<span>🔄</span><span>正在拉取...</span>';
-    btn.style.opacity = '0.8';
+    btn.style.opacity = '0.7';
+    btn.style.pointerEvents = 'none';
   }
   showToast('🔄 正在从谷歌云盘拉取最新漫游数据...');
   try {
@@ -3325,9 +3335,11 @@ async function handleCloudPull() {
   } catch (err) {
     showToast('❌ 拉取失败: ' + err.message);
   } finally {
+    isCloudPulling = false;
     if (btn) {
       btn.innerHTML = oldText;
       btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
     }
   }
 }
