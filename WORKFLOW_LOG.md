@@ -74,3 +74,13 @@
 - **本地验证结果**：`node -c app.js` 语法自检 100% 通过；Git push 推送远端成功（Commit `bdac041`）。
 - **状态**：🟢 3秒极速脚本执行与验证闭环。
 ---
+
+## [2026-11-17 20:00] 任务：系统减熵与 v1.5.0 残留冗余清理
+- **决策来源**：数字管家 (Cloud Hub Central) ACTIVE_TASK.md
+- **核心执行**：
+  - 清理 `D:\fzl\CLOUD_HUB\fs_timemirror\` 下全部临时补丁与测试脚本（`clean_sample_data.py`、`fix_changelog.py`、`fix_pull_button.py`、`fix_pull_crash.py`、`patch_merge.py`、`patch_v150.py` 及中间 txt 文本）；
+  - 清除 `fs/timemirror/` 及云端目录下的 `__pycache__` 缓存；
+  - 重置 `ACTIVE_TASK.md` 为待命状态 (`STANDBY`)；
+  - 更新 `STATUS.txt`。
+- **状态**：🟢 系统环境彻底减熵归零，STANDBY 待命。
+---
