@@ -1,5 +1,5 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v142-google-drive-sync';
+const CACHE_NAME = 'timemirror-v150-cloud-roam-responsive';
 const ASSETS = [
   './',
   './index.html',

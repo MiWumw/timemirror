@@ -1833,3 +1833,44 @@ body {
 .btn-delete-habit:active {
   background: #FEE2E2;
 }
+
+
+/* ========================================== */
+/* 📱 iPad 与宽屏工作台自适应增强 (>= 768px) */
+/* ========================================== */
+@media (min-width: 768px) {
+  body {
+    background-color: #F1F5F9;
+  }
+  .app-shell {
+    max-width: 900px !important;
+    margin: 0 auto;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.08);
+  }
+  .bottom-nav {
+    max-width: 900px !important;
+  }
+  .fab-add {
+    right: calc(50% - 450px + 28px) !important;
+  }
+  .modal-overlay {
+    align-items: center;
+  }
+  .bottom-sheet {
+    max-width: 600px !important;
+    border-radius: 24px !important;
+    margin: auto;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+  }
+  .modal-overlay.open .bottom-sheet {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  .quick-stats {
+    grid-template-columns: repeat(6, 1fr) !important;
+  }
+}

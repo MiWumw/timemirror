@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.4.2 · 全端云同步版</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.5.0</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -103,10 +103,16 @@
             <span>局域网直通写入</span>
           </button>
         </div>
-        <button type="button" id="btn-cloud-sync" class="obsidian-action-btn sync" style="background: #4285F4; margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;" title="将当前打卡数据与知行日记同步至谷歌云盘，支持任何手机/外网设备">
-          <span>☁️</span>
-          <span>谷歌云盘全网同步 (支持任何设备)</span>
-        </button>
+        <div class="obsidian-btn-group" style="margin-top: 8px;">
+            <button type="button" id="btn-cloud-sync" class="obsidian-action-btn sync" style="background: #4285F4;" title="将当前打卡数据与知行日记同步至谷歌云盘">
+              <span>☁️</span>
+              <span>推送至云盘</span>
+            </button>
+            <button type="button" id="btn-cloud-pull" class="obsidian-action-btn sync" style="background: #0F9D58;" title="从谷歌云盘拉取最新漫游状态并智能合并">
+              <span>🔄</span>
+              <span>从云端拉取</span>
+            </button>
+          </div>
       </div>
 
       <div id="emptyNotice" style="display: none; text-align: center; padding: 24px 0 10px; color: var(--text-muted);">
@@ -463,7 +469,7 @@
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #F1F5F9; padding: 10px 12px; border-radius: var(--radius-md);">
           <div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.4.2 (全设备谷歌云端硬核同步版)</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.5.0 (全设备谷歌云端硬核同步版)</div>
             <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261117 · Google Apps Script 谷歌云桥直连、多设备状态无缝漫游、纯云端免局域网直通</div>
           </div>
           <button id="btnOpenChangelog" class="gap-add-btn" style="padding: 6px 14px;">
@@ -676,12 +682,30 @@
         </div>
 
         <div class="changelog-timeline">
-          <!-- v1.4.2 Current -->
-          <div class="changelog-card current">
+        <!-- v1.5.0 Current -->
+        <div class="changelog-card current">
+          <div class="changelog-header">
+            <div class="changelog-version">
+              <span>v1.5.0</span>
+              <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 跨端云漫游与全屏自适应版</span>
+            </div>
+            <span class="changelog-date">2026-11-17</span>
+          </div>
+          <ul class="changelog-list">
+            <li><b>📱 iPad 与宽屏工作台全自适应重构</b>：突破窄屏 480px 限制，宽屏自适应展开至 900px，弹窗居中呈现，平板/电脑操作开阔自如。</li>
+            <li><b>🏷️ 全自定义分类跨端无缝漫游</b>：彻底根除手机端新增分类（冥想、厕所等）在 iPad 显示“未命名”的痛点，分类元数据全量入云并智能合并。</li>
+            <li><b>🔄 暮夜对账四联装双核矩阵</b>：新增【从云端拉取】独立常驻按钮，与一键复制、局域网直通、推送云端形成四位一体对账操作。</li>
+            <li><b>🛡️ StateMerger 增量合并防炸缸</b>：时间块按 ID 并集，多设备交替打卡零数据冲刷。</li>
+          </ul>
+        </div>
+
+          <!-- v1.5.0 Current -->
+          <div class="changelog-card">
+          <!-- Previous -->
             <div class="changelog-header">
               <div class="changelog-version">
-                <span>v1.4.2</span>
-                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 全设备谷歌云端硬核同步</span>
+                <span>v1.5.0</span>
+                <span class="brand-badge" style="font-size: 0.65rem;">全设备谷歌云端硬核同步</span>
               </div>
               <span class="changelog-date">2026-11-17</span>
             </div>
@@ -692,11 +716,11 @@
             </ul>
           </div>
 
-          <!-- v1.4.1 Previous -->
+          <!-- v1.5.0 Previous -->
           <div class="changelog-card">
             <div class="changelog-header">
               <div class="changelog-version">
-                <span>v1.4.1</span>
+                <span>v1.5.0</span>
                 <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
               </div>
               <span class="changelog-date">2026-11-16</span>
@@ -708,11 +732,11 @@
             </ul>
           </div>
 
-          <!-- v1.4.0 Previous -->
+          <!-- v1.5.0 Previous -->
           <div class="changelog-card">
             <div class="changelog-header">
               <div class="changelog-version">
-                <span>v1.4.0</span>
+                <span>v1.5.0</span>
                 <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
               </div>
               <span class="changelog-date">2026-11-16</span>

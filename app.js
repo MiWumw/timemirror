@@ -2929,7 +2929,196 @@ async function testObsidianConnection() {
 }
 
 // ==========================================
-// ☁️ 谷歌云盘云桥同步引擎 (Google Drive Cloud Bridge)
+// 🛡️ 多设备防炸缸·智能增量合并引擎 (Conflict-Free State Merger v1.5.0)
+// ==========================================
+const StateMerger = {
+  // 0. 合并分类元数据（保留默认分类，并集合并自定义分类，彻底解决 iPad 上显示“未命名”的问题）
+  mergeCategories(local, cloud) {
+    const list = Array.isArray(DEFAULT_CATEGORIES) ? [...DEFAULT_CATEGORIES] : [];
+    const idMap = new Map();
+    list.forEach(c => { if (c && c.id) idMap.set(c.id, c); });
+    
+    if (Array.isArray(cloud)) {
+      cloud.forEach(c => {
+        if (c && c.id && !idMap.has(c.id)) {
+          idMap.set(c.id, c);
+          list.push(c);
+        }
+      });
+    }
+    if (Array.isArray(local)) {
+      local.forEach(c => {
+        if (c && c.id && !idMap.has(c.id)) {
+          idMap.set(c.id, c);
+          list.push(c);
+        }
+      });
+    }
+    return list;
+  },
+
+  // 1. 合并时间记录（按日期和独有 ID 取并集，按开始时间排序，绝不冲掉任何一台设备的记录）
+  mergeRecords(local, cloud) {
+    const res = Object.assign({}, cloud || {});
+    const lObj = local || {};
+    for (const d of Object.keys(lObj)) {
+      if (!res[d]) {
+        res[d] = lObj[d];
+      } else {
+        const cList = Array.isArray(res[d]) ? res[d] : [];
+        const lList = Array.isArray(lObj[d]) ? lObj[d] : [];
+        const map = new Map();
+        cList.forEach(r => { if (r && r.id) map.set(r.id, r); });
+        lList.forEach(r => {
+          if (r && r.id) {
+            if (!map.has(r.id)) {
+              map.set(r.id, r);
+            } else {
+              const existing = map.get(r.id);
+              if ((r.note || '').length > (existing.note || '').length) {
+                map.set(r.id, r);
+              }
+            }
+          }
+        });
+        const mergedList = Array.from(map.values());
+        mergedList.sort((a, b) => (a.start || '').localeCompare(b.start || ''));
+        res[d] = mergedList;
+      }
+    }
+    return res;
+  },
+
+  // 2. 合并晨起计划与反思（互补合并，绝不丢失任何一方输入）
+  mergeTexts(local, cloud) {
+    const res = Object.assign({}, cloud || {});
+    const lObj = local || {};
+    for (const d of Object.keys(lObj)) {
+      const lText = (lObj[d] || '').trim();
+      const cText = (res[d] || '').trim();
+      if (!cText) {
+        res[d] = lText;
+      } else if (!lText) {
+        res[d] = cText;
+      } else if (lText === cText) {
+        res[d] = cText;
+      } else if (cText.includes(lText)) {
+        res[d] = cText;
+      } else if (lText.includes(cText)) {
+        res[d] = lText;
+      } else {
+        res[d] = cText + '\n' + lText;
+      }
+    }
+    return res;
+  },
+
+  // 3. 合并微步打卡（逻辑或合并，任一设备打了勾即算打勾）
+  mergeHabits(local, cloud) {
+    const res = Object.assign({}, cloud || {});
+    const lObj = local || {};
+    for (const d of Object.keys(lObj)) {
+      if (!res[d]) {
+        res[d] = lObj[d];
+      } else {
+        const lDay = lObj[d] || {};
+        const cDay = res[d] || {};
+        const mergedDay = Object.assign({}, cDay);
+        for (const k of Object.keys(lDay)) {
+          mergedDay[k] = Boolean(cDay[k] || lDay[k]);
+        }
+        res[d] = mergedDay;
+      }
+    }
+    return res;
+  },
+
+  // 4. 合并体重记录
+  mergeWeights(local, cloud) {
+    const res = Object.assign({}, cloud || {});
+    const lObj = local || {};
+    for (const d of Object.keys(lObj)) {
+      if (!res[d] && lObj[d]) res[d] = lObj[d];
+    }
+    return res;
+  },
+
+  // 5. 合并身心状态
+  mergeBodyState(local, cloud) {
+    const res = Object.assign({}, cloud || {});
+    const lObj = local || {};
+    for (const d of Object.keys(lObj)) {
+      if (!res[d]) {
+        res[d] = lObj[d];
+      } else {
+        const lDay = lObj[d] || {};
+        const cDay = res[d] || {};
+        res[d] = {
+          energy: lDay.energy || cDay.energy,
+          bodyPose: lDay.bodyPose || cDay.bodyPose,
+          leftNose: Boolean(cDay.leftNose || lDay.leftNose),
+          rightNose: Boolean(cDay.rightNose || lDay.rightNose),
+          stressSpeed: lDay.stressSpeed || cDay.stressSpeed,
+          calmSpeed: lDay.calmSpeed || cDay.calmSpeed,
+          bodySymptomNotes: (cDay.bodySymptomNotes || lDay.bodySymptomNotes || ''),
+          stressDetailNotes: (cDay.stressDetailNotes || lDay.stressDetailNotes || '')
+        };
+      }
+    }
+    return res;
+  },
+
+  // 6. 合并连赢6次胜者试验场（按ID取最高胜次与全部打卡流水）
+  mergeWinnerTrials(local, cloud) {
+    if (!cloud || !Array.isArray(cloud.activeTrials)) return local;
+    if (!local || !Array.isArray(local.activeTrials)) return cloud;
+    const map = new Map();
+    (cloud.activeTrials || []).forEach(t => { if (t && t.id) map.set(t.id, t); });
+    (local.activeTrials || []).forEach(lt => {
+      if (!lt || !lt.id) return;
+      if (!map.has(lt.id)) {
+        map.set(lt.id, lt);
+      } else {
+        const ct = map.get(lt.id);
+        const mergedWins = Math.max(ct.currentWins || 0, lt.currentWins || 0);
+        const histMap = new Map();
+        (ct.history || []).forEach(h => histMap.set(h.timestamp || h.date, h));
+        (lt.history || []).forEach(h => histMap.set(h.timestamp || h.date, h));
+        ct.currentWins = mergedWins;
+        ct.history = Array.from(histMap.values());
+        map.set(lt.id, ct);
+      }
+    });
+    const gradMap = new Map();
+    (cloud.graduatedTrials || []).forEach(t => { if (t && t.id) gradMap.set(t.id, t); });
+    (local.graduatedTrials || []).forEach(t => { if (t && t.id) gradMap.set(t.id, t); });
+    return {
+      version: 1,
+      activeTrials: Array.from(map.values()),
+      graduatedTrials: Array.from(gradMap.values())
+    };
+  },
+
+  // 全量合并总线入口
+  mergeAll(localState, cloudState) {
+    if (!cloudState) return localState;
+    if (!localState) return cloudState;
+    return {
+      categories: this.mergeCategories(localState.categories, cloudState.categories),
+      records: this.mergeRecords(localState.records, cloudState.records),
+      plans: this.mergeTexts(localState.plans, cloudState.plans),
+      reflections: this.mergeTexts(localState.reflections, cloudState.reflections),
+      habits: this.mergeHabits(localState.habits, cloudState.habits),
+      weights: this.mergeWeights(localState.weights, cloudState.weights),
+      bodyState: this.mergeBodyState(localState.bodyState, cloudState.bodyState),
+      winnerTrials: this.mergeWinnerTrials(localState.winnerTrials, cloudState.winnerTrials),
+      habitsConfig: cloudState.habitsConfig || localState.habitsConfig
+    };
+  }
+};
+
+// ==========================================
+// ☁️ 谷歌云盘云桥同步引擎 (Google Drive Cloud Bridge - v1.5.0)
 // ==========================================
 function buildObsidianMarkdown(dateStr) {
   return generateFullZhixingMarkdown(dateStr || (state ? state.currentDate : getTodayString()));
@@ -2946,7 +3135,7 @@ const CloudSyncAdapter = {
       localStorage.removeItem('tm_cloud_bridge_url');
     }
   },
-  // 1. 从谷歌云盘拉取最新全量状态 (多设备漫游)
+  // 1. 从谷歌云盘拉取最新全量状态并智能合并 (分类/流水/6胜全要素漫游)
   async pullFromCloud() {
     const url = this.getUrl();
     if (!url) return null;
@@ -2955,23 +3144,39 @@ const CloudSyncAdapter = {
       if (!resp.ok) return null;
       const data = await resp.json();
       if (data && data.state) {
-        // 合并云端状态到本地
-        if (data.state.records) { StorageAdapter.save('records', data.state.records); state.records = data.state.records; }
-        if (data.state.plans) { StorageAdapter.save('plans', data.state.plans); state.plans = data.state.plans; }
-        if (data.state.reflections) { StorageAdapter.save('reflections', data.state.reflections); state.reflections = data.state.reflections; }
-        if (data.state.habits) { StorageAdapter.save('habits', data.state.habits); state.habits = data.state.habits; }
-        if (data.state.weights) { StorageAdapter.save('weights', data.state.weights); state.weights = data.state.weights; }
-        if (data.state.bodyState) { StorageAdapter.save('body_state', data.state.bodyState); state.bodyState = data.state.bodyState; }
-        if (data.state.winnerTrials) StorageAdapter.save('winner_trials', data.state.winnerTrials);
-        if (data.state.habitsConfig) StorageAdapter.save('habits_config', data.state.habitsConfig);
-        return data.state;
+        const localState = {
+          categories: StorageAdapter.load('categories', DEFAULT_CATEGORIES),
+          records: StorageAdapter.load('records', {}),
+          plans: StorageAdapter.load('plans', {}),
+          reflections: StorageAdapter.load('reflections', {}),
+          habits: StorageAdapter.load('habits', {}),
+          weights: StorageAdapter.load('weights', {}),
+          bodyState: StorageAdapter.load('body_state', {}),
+          winnerTrials: WinnerTrialManager.getData(),
+          habitsConfig: HabitManager.getConfig()
+        };
+        const merged = StateMerger.mergeAll(localState, data.state);
+        if (merged.categories) {
+          StorageAdapter.save('categories', merged.categories);
+          state.categories = merged.categories;
+          if (typeof renderCategoryPills === 'function') renderCategoryPills();
+        }
+        if (merged.records) { StorageAdapter.save('records', merged.records); state.records = merged.records; }
+        if (merged.plans) { StorageAdapter.save('plans', merged.plans); state.plans = merged.plans; }
+        if (merged.reflections) { StorageAdapter.save('reflections', merged.reflections); state.reflections = merged.reflections; }
+        if (merged.habits) { StorageAdapter.save('habits', merged.habits); state.habits = merged.habits; }
+        if (merged.weights) { StorageAdapter.save('weights', merged.weights); state.weights = merged.weights; }
+        if (merged.bodyState) { StorageAdapter.save('body_state', merged.bodyState); state.bodyState = merged.bodyState; }
+        if (merged.winnerTrials) StorageAdapter.save('winner_trials', merged.winnerTrials);
+        if (merged.habitsConfig) StorageAdapter.save('habits_config', merged.habitsConfig);
+        return merged;
       }
     } catch (e) {
       console.warn('云端拉取同步失败(可能处于离线状态):', e);
     }
     return null;
   },
-  // 2. 将当前全部数据与日记 Markdown 推送至谷歌云盘
+  // 2. 将当前全部数据智能合并后推送至谷歌云盘 (防炸缸核心：先并集后落盘)
   async pushToCloud(dateStr) {
     const url = this.getUrl();
     if (!url) return { success: false, message: '未配置谷歌云桥 URL' };
@@ -3001,20 +3206,49 @@ const CloudSyncAdapter = {
       saveBodyState();
     }
 
+    let localState = {
+      categories: StorageAdapter.load('categories', DEFAULT_CATEGORIES),
+      records: StorageAdapter.load('records', {}),
+      plans: StorageAdapter.load('plans', {}),
+      reflections: StorageAdapter.load('reflections', {}),
+      habits: StorageAdapter.load('habits', {}),
+      weights: StorageAdapter.load('weights', {}),
+      bodyState: StorageAdapter.load('body_state', {}),
+      winnerTrials: WinnerTrialManager.getData(),
+      habitsConfig: HabitManager.getConfig()
+    };
+
+    // 推送前与云端并集
+    try {
+      const pullResp = await fetch(`${url}?action=pull`, { method: 'GET', mode: 'cors' });
+      if (pullResp.ok) {
+        const pullData = await pullResp.json();
+        if (pullData && pullData.state) {
+          localState = StateMerger.mergeAll(localState, pullData.state);
+          if (localState.categories) {
+            StorageAdapter.save('categories', localState.categories);
+            state.categories = localState.categories;
+            if (typeof renderCategoryPills === 'function') renderCategoryPills();
+          }
+          if (localState.records) { StorageAdapter.save('records', localState.records); state.records = localState.records; }
+          if (localState.plans) { StorageAdapter.save('plans', localState.plans); state.plans = localState.plans; }
+          if (localState.reflections) { StorageAdapter.save('reflections', localState.reflections); state.reflections = localState.reflections; }
+          if (localState.habits) { StorageAdapter.save('habits', localState.habits); state.habits = localState.habits; }
+          if (localState.weights) { StorageAdapter.save('weights', localState.weights); state.weights = localState.weights; }
+          if (localState.bodyState) { StorageAdapter.save('body_state', localState.bodyState); state.bodyState = localState.bodyState; }
+          if (localState.winnerTrials) StorageAdapter.save('winner_trials', localState.winnerTrials);
+          if (localState.habitsConfig) StorageAdapter.save('habits_config', localState.habitsConfig);
+        }
+      }
+    } catch (pullErr) {
+      console.warn('推送前拉取合并跳过 (网络或离线):', pullErr);
+    }
+
     const payload = {
       action: 'push',
       date: dStr,
       updatedAt: new Date().toISOString(),
-      state: {
-        records: StorageAdapter.load('records', {}),
-        plans: StorageAdapter.load('plans', {}),
-        reflections: StorageAdapter.load('reflections', {}),
-        habits: StorageAdapter.load('habits', {}),
-        weights: StorageAdapter.load('weights', {}),
-        bodyState: StorageAdapter.load('body_state', {}),
-        winnerTrials: WinnerTrialManager.getData(),
-        habitsConfig: HabitManager.getConfig()
-      },
+      state: localState,
       markdownContent: buildObsidianMarkdown(dStr)
     };
 
@@ -3031,6 +3265,45 @@ const CloudSyncAdapter = {
     }
   }
 };
+
+async function handleCloudPull() {
+  const url = CloudSyncAdapter.getUrl();
+  if (!url) {
+    showToast('💡 请先配置谷歌云桥 URL');
+    openCloudBridgeModal();
+    return;
+  }
+  const btn = document.getElementById('btn-cloud-pull');
+  const oldText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.innerHTML = '<span>🔄</span><span>正在拉取...</span>';
+    btn.style.opacity = '0.8';
+  }
+  showToast('🔄 正在从谷歌云盘拉取最新漫游数据...');
+  try {
+    const cloudState = await CloudSyncAdapter.pullFromCloud();
+    if (cloudState) {
+      renderDailyPlanSection();
+      renderDailyReflectionSection();
+      renderDailyWeightSection();
+      renderHabitsSection();
+      renderWinnerTrials();
+      renderBodyStateSection();
+      if (typeof renderCategoryPills === 'function') renderCategoryPills();
+      updateUI();
+      showToast('✅ 已成功从谷歌云盘拉取并合并！');
+    } else {
+      showToast('⚠️ 未能获取到云端状态或网络未连接');
+    }
+  } catch (err) {
+    showToast('❌ 拉取失败: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.innerHTML = oldText;
+      btn.style.opacity = '1';
+    }
+  }
+}
 
 async function handleCloudSync() {
   const url = CloudSyncAdapter.getUrl();
