@@ -417,6 +417,22 @@ document.addEventListener('DOMContentLoaded', () => {
   renderBodyStateSection();
   updateUI();
   registerServiceWorker();
+
+  // ☁️ 首次载入若配置了云桥，尝试自动静默从谷歌云盘拉取同步最新状态
+  if (CloudSyncAdapter.getUrl()) {
+    CloudSyncAdapter.pullFromCloud().then(cloudState => {
+      if (cloudState) {
+        renderDailyPlanSection();
+        renderDailyReflectionSection();
+        renderDailyWeightSection();
+        renderHabitsSection();
+        renderWinnerTrials();
+        renderBodyStateSection();
+        updateUI();
+        console.log('☁️ 谷歌云端状态已自动合并同步');
+      }
+    });
+  }
 });
 
 function initEventListeners() {
@@ -653,6 +669,97 @@ function initEventListeners() {
 
   const btnTestObsidianServer = document.getElementById('btnTestObsidianServer');
   if (btnTestObsidianServer) btnTestObsidianServer.addEventListener('click', testObsidianConnection);
+
+  // ☁️ 谷歌云盘云桥同步按钮与弹窗监听 (Google Drive Cloud Bridge)
+  const btnCloudSync = document.getElementById('btn-cloud-sync');
+  if (btnCloudSync) btnCloudSync.addEventListener('click', handleCloudSync);
+
+  const btnCloudSyncInReview = document.getElementById('btnCloudSyncInReview');
+  if (btnCloudSyncInReview) btnCloudSyncInReview.addEventListener('click', handleCloudSync);
+
+  const btnCloudSyncInSettings = document.getElementById('btnCloudSyncInSettings');
+  if (btnCloudSyncInSettings) btnCloudSyncInSettings.addEventListener('click', handleCloudSync);
+
+  const btnCloudBridgeCfg = document.getElementById('btn-cloud-bridge-cfg');
+  if (btnCloudBridgeCfg) btnCloudBridgeCfg.addEventListener('click', openCloudBridgeModal);
+
+  const btnSaveCloudBridgeInSettings = document.getElementById('btnSaveCloudBridgeInSettings');
+  const cloudBridgeUrlInputSettings = document.getElementById('cloudBridgeUrlInputSettings');
+  if (cloudBridgeUrlInputSettings) {
+    cloudBridgeUrlInputSettings.value = CloudSyncAdapter.getUrl();
+  }
+  if (btnSaveCloudBridgeInSettings) {
+    btnSaveCloudBridgeInSettings.addEventListener('click', () => {
+      const val = cloudBridgeUrlInputSettings ? cloudBridgeUrlInputSettings.value.trim() : '';
+      CloudSyncAdapter.setUrl(val);
+      showToast(val ? '☁️ 谷歌云桥 Web App URL 已保存！' : '已清除云桥配置');
+    });
+  }
+
+  const btnPullCloudInSettings = document.getElementById('btnPullCloudInSettings');
+  if (btnPullCloudInSettings) {
+    btnPullCloudInSettings.addEventListener('click', async () => {
+      const val = cloudBridgeUrlInputSettings ? cloudBridgeUrlInputSettings.value.trim() : '';
+      if (val) CloudSyncAdapter.setUrl(val);
+      showToast('☁️ 正在从云端拉取漫游状态...');
+      const st = await CloudSyncAdapter.pullFromCloud();
+      if (st) {
+        renderDailyPlanSection();
+        renderDailyReflectionSection();
+        renderDailyWeightSection();
+        renderHabitsSection();
+        renderWinnerTrials();
+        renderBodyStateSection();
+        updateUI();
+        showToast('🟢 云端漫游状态已拉取并成功合并！');
+      } else {
+        showToast('⚠️ 未能拉取到云端数据，请检查网络或 URL');
+      }
+    });
+  }
+
+  const cloudBridgeModal = document.getElementById('cloudBridgeModal');
+  const cloudBridgeCloseBtn = document.getElementById('cloudBridgeCloseBtn');
+  const btnSaveCloudBridgeUrl = document.getElementById('btnSaveCloudBridgeUrl');
+  const btnPullCloudNow = document.getElementById('btnPullCloudNow');
+  const cloudBridgeUrlInput = document.getElementById('cloudBridgeUrlInput');
+
+  if (cloudBridgeCloseBtn) cloudBridgeCloseBtn.addEventListener('click', closeCloudBridgeModal);
+  if (cloudBridgeModal) {
+    cloudBridgeModal.addEventListener('click', (e) => {
+      if (e.target === cloudBridgeModal) closeCloudBridgeModal();
+    });
+  }
+  if (btnSaveCloudBridgeUrl) {
+    btnSaveCloudBridgeUrl.addEventListener('click', () => {
+      const val = cloudBridgeUrlInput ? cloudBridgeUrlInput.value.trim() : '';
+      CloudSyncAdapter.setUrl(val);
+      if (cloudBridgeUrlInputSettings) cloudBridgeUrlInputSettings.value = val;
+      showToast(val ? '☁️ 谷歌云桥 Web App URL 已保存！' : '已清除云桥配置');
+      closeCloudBridgeModal();
+    });
+  }
+  if (btnPullCloudNow) {
+    btnPullCloudNow.addEventListener('click', async () => {
+      const val = cloudBridgeUrlInput ? cloudBridgeUrlInput.value.trim() : '';
+      if (val) CloudSyncAdapter.setUrl(val);
+      showToast('☁️ 正在从云端拉取漫游状态...');
+      const st = await CloudSyncAdapter.pullFromCloud();
+      if (st) {
+        renderDailyPlanSection();
+        renderDailyReflectionSection();
+        renderDailyWeightSection();
+        renderHabitsSection();
+        renderWinnerTrials();
+        renderBodyStateSection();
+        updateUI();
+        showToast('🟢 云端漫游状态已拉取并成功合并！');
+        closeCloudBridgeModal();
+      } else {
+        showToast('⚠️ 未能拉取到云端数据，请检查网络或 URL');
+      }
+    });
+  }
 
   // Category Manager Modal Listeners
   const btnOpenCategoryManager = document.getElementById('btnOpenCategoryManager');
@@ -2819,6 +2926,153 @@ async function testObsidianConnection() {
     }
     showToast('❌ 连接失败，请检查服务是否开启');
   }
+}
+
+// ==========================================
+// ☁️ 谷歌云盘云桥同步引擎 (Google Drive Cloud Bridge)
+// ==========================================
+function buildObsidianMarkdown(dateStr) {
+  return generateFullZhixingMarkdown(dateStr || (state ? state.currentDate : getTodayString()));
+}
+
+const CloudSyncAdapter = {
+  getUrl() {
+    return localStorage.getItem('tm_cloud_bridge_url') || '';
+  },
+  setUrl(url) {
+    if (url) {
+      localStorage.setItem('tm_cloud_bridge_url', url.trim());
+    } else {
+      localStorage.removeItem('tm_cloud_bridge_url');
+    }
+  },
+  // 1. 从谷歌云盘拉取最新全量状态 (多设备漫游)
+  async pullFromCloud() {
+    const url = this.getUrl();
+    if (!url) return null;
+    try {
+      const resp = await fetch(`${url}?action=pull`, { method: 'GET', mode: 'cors' });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      if (data && data.state) {
+        // 合并云端状态到本地
+        if (data.state.records) { StorageAdapter.save('records', data.state.records); state.records = data.state.records; }
+        if (data.state.plans) { StorageAdapter.save('plans', data.state.plans); state.plans = data.state.plans; }
+        if (data.state.reflections) { StorageAdapter.save('reflections', data.state.reflections); state.reflections = data.state.reflections; }
+        if (data.state.habits) { StorageAdapter.save('habits', data.state.habits); state.habits = data.state.habits; }
+        if (data.state.weights) { StorageAdapter.save('weights', data.state.weights); state.weights = data.state.weights; }
+        if (data.state.bodyState) { StorageAdapter.save('body_state', data.state.bodyState); state.bodyState = data.state.bodyState; }
+        if (data.state.winnerTrials) StorageAdapter.save('winner_trials', data.state.winnerTrials);
+        if (data.state.habitsConfig) StorageAdapter.save('habits_config', data.state.habitsConfig);
+        return data.state;
+      }
+    } catch (e) {
+      console.warn('云端拉取同步失败(可能处于离线状态):', e);
+    }
+    return null;
+  },
+  // 2. 将当前全部数据与日记 Markdown 推送至谷歌云盘
+  async pushToCloud(dateStr) {
+    const url = this.getUrl();
+    if (!url) return { success: false, message: '未配置谷歌云桥 URL' };
+
+    const dStr = dateStr || (state ? state.currentDate : getTodayString());
+
+    // 动态收拢界面当前最新输入
+    if (inputDailyPlan && dStr === state.currentDate) {
+      state.plans[dStr] = inputDailyPlan.value.trim();
+      savePlans();
+    }
+    if (inputDailyReflection && dStr === state.currentDate) {
+      state.reflections[dStr] = inputDailyReflection.value.trim();
+      saveReflections();
+    }
+    if (inputDailyWeight && dStr === state.currentDate && inputDailyWeight.value.trim() !== '') {
+      const parsed = parseFloat(inputDailyWeight.value.trim());
+      if (!isNaN(parsed) && parsed > 0) {
+        state.weights[dStr] = Number(parsed.toFixed(1));
+        saveWeights();
+      }
+    }
+    if (dStr === state.currentDate) {
+      if (!state.bodyState[dStr]) state.bodyState[dStr] = {};
+      if (inputBodySymptomNotes) state.bodyState[dStr].bodySymptomNotes = inputBodySymptomNotes.value.trim();
+      if (inputStressDetailNotes) state.bodyState[dStr].stressDetailNotes = inputStressDetailNotes.value.trim();
+      saveBodyState();
+    }
+
+    const payload = {
+      action: 'push',
+      date: dStr,
+      updatedAt: new Date().toISOString(),
+      state: {
+        records: StorageAdapter.load('records', {}),
+        plans: StorageAdapter.load('plans', {}),
+        reflections: StorageAdapter.load('reflections', {}),
+        habits: StorageAdapter.load('habits', {}),
+        weights: StorageAdapter.load('weights', {}),
+        bodyState: StorageAdapter.load('body_state', {}),
+        winnerTrials: WinnerTrialManager.getData(),
+        habitsConfig: HabitManager.getConfig()
+      },
+      markdownContent: buildObsidianMarkdown(dStr)
+    };
+
+    try {
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      const res = await resp.json();
+      return res;
+    } catch (e) {
+      return { success: false, message: '云端直连网络请求失败: ' + e.message };
+    }
+  }
+};
+
+async function handleCloudSync() {
+  const url = CloudSyncAdapter.getUrl();
+  if (!url) {
+    showToast('💡 请先配置谷歌云桥 Web App URL');
+    openCloudBridgeModal();
+    return;
+  }
+  const btn = document.getElementById('btn-cloud-sync');
+  const oldText = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.innerHTML = '<span>☁️</span><span>正在同步到谷歌云盘...</span>';
+    btn.style.opacity = '0.8';
+  }
+  showToast('☁️ 正在向谷歌云盘推送数据...');
+  try {
+    const res = await CloudSyncAdapter.pushToCloud(state.currentDate);
+    if (res && (res.success || res.status === 'success' || res.ok)) {
+      showToast('🟢 谷歌云盘同步成功！全端数据与 Markdown 已入库');
+    } else {
+      showToast('⚠️ 同步结果: ' + (res.message || JSON.stringify(res)));
+    }
+  } catch (e) {
+    showToast('❌ 同步网络异常: ' + e.message);
+  } finally {
+    if (btn) {
+      btn.innerHTML = oldText;
+      btn.style.opacity = '1';
+    }
+  }
+}
+
+function openCloudBridgeModal() {
+  const input = document.getElementById('cloudBridgeUrlInput');
+  if (input) input.value = CloudSyncAdapter.getUrl();
+  const modal = document.getElementById('cloudBridgeModal');
+  if (modal) modal.classList.add('open');
+}
+
+function closeCloudBridgeModal() {
+  const modal = document.getElementById('cloudBridgeModal');
+  if (modal) modal.classList.remove('open');
 }
 
 // 5. Category Management System

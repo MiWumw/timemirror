@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.4.1">
+  <link rel="stylesheet" href="style.css?v=1.4.2">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.4.1 · 胜者丰碑版</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.4.2 · 全端云同步版</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -88,7 +88,10 @@
             <span class="obsidian-name">Obsidian 暮夜对账</span>
             <span id="syncStatusBadge" class="sync-badge">双保险联动</span>
           </div>
-          <span class="obsidian-sub">知行日志无感直接入账</span>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="obsidian-sub">知行日志无感直接入账</span>
+            <button type="button" id="btn-cloud-bridge-cfg" style="background: none; border: none; cursor: pointer; font-size: 1rem; padding: 2px 4px; opacity: 0.8;" title="配置谷歌云桥 URL">⚙️</button>
+          </div>
         </div>
         <div class="obsidian-btn-group">
           <button id="btnCopyObsidian" class="obsidian-action-btn copy" title="一键复制为 Obsidian 暮夜对账 Markdown 格式">
@@ -100,6 +103,10 @@
             <span>局域网直通写入</span>
           </button>
         </div>
+        <button type="button" id="btn-cloud-sync" class="obsidian-action-btn sync" style="background: #4285F4; margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px;" title="将当前打卡数据与知行日记同步至谷歌云盘，支持任何手机/外网设备">
+          <span>☁️</span>
+          <span>谷歌云盘全网同步 (支持任何设备)</span>
+        </button>
       </div>
 
       <div id="emptyNotice" style="display: none; text-align: center; padding: 24px 0 10px; color: var(--text-muted);">
@@ -343,6 +350,9 @@
         <button type="button" id="btnSyncObsidianInReview" class="btn-primary btn-obsidian-sync">
           🚀 局域网直通写入电脑 Obsidian
         </button>
+        <button type="button" id="btnCloudSyncInReview" class="btn-primary" style="background: #4285F4;">
+          ☁️ 谷歌云盘全网同步 (支持任何设备)
+        </button>
         <button type="button" id="btnCopyDailyZhixing" class="btn-secondary">
           📋 一键复制完整知行 Markdown
         </button>
@@ -417,14 +427,44 @@
         </div>
       </div>
 
+      <!-- Google Drive Cloud Bridge Card -->
+      <div class="review-card" style="border: 1.5px solid #4285F4;">
+        <div class="review-card-title">
+          <span>☁️ 谷歌云盘云桥同步设置 (Google Apps Script)</span>
+          <span style="font-size: 0.72rem; color: #4285F4; font-weight: 700; background: #E8F0FE; padding: 2px 8px; border-radius: var(--radius-full);">全设备·免局域网</span>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px;">
+          通过 Google Apps Script 部署轻量 Web App，使《时镜》在任何移动网络或外部设备上均可直接与 Google Drive 读写交互，实现全天候跨端状态漫游与日记归档。
+        </p>
+
+        <div style="margin-bottom: 10px;">
+          <label style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">Google Apps Script Web App URL：</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="cloudBridgeUrlInputSettings" class="text-input" style="font-family: monospace; font-size: 0.85rem;" placeholder="https://script.google.com/macros/s/.../exec">
+            <button type="button" id="btnSaveCloudBridgeInSettings" class="gap-add-btn" style="padding: 0 14px; white-space: nowrap;">
+              保存配置
+            </button>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button type="button" id="btnCloudSyncInSettings" class="btn-primary" style="background: #4285F4; flex: 1;">
+            ☁️ 立即同步至谷歌云盘
+          </button>
+          <button type="button" id="btnPullCloudInSettings" class="btn-secondary" style="flex: 1;">
+            📥 从云端拉取漫游状态
+          </button>
+        </div>
+      </div>
+
       <div class="review-card">
         <div class="review-card-title">
           <span>📦 版本与迭代中心</span>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; background: #F1F5F9; padding: 10px 12px; border-radius: var(--radius-md);">
           <div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.4.1 (解除单日限制与胜者丰碑上线版)</div>
-            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261116 · 随时高频赢下一局、步进圆点直接设值、满级神经回路入驻胜者丰碑</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">当前版本：v1.4.2 (全设备谷歌云端硬核同步版)</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;">Build 20261117 · Google Apps Script 谷歌云桥直连、多设备状态无缝漫游、纯云端免局域网直通</div>
           </div>
           <button id="btnOpenChangelog" class="gap-add-btn" style="padding: 6px 14px;">
             查看更新日志
@@ -636,12 +676,28 @@
         </div>
 
         <div class="changelog-timeline">
-          <!-- v1.4.1 Current -->
+          <!-- v1.4.2 Current -->
           <div class="changelog-card current">
             <div class="changelog-header">
               <div class="changelog-version">
+                <span>v1.4.2</span>
+                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 全设备谷歌云端硬核同步</span>
+              </div>
+              <span class="changelog-date">2026-11-17</span>
+            </div>
+            <ul class="changelog-list">
+              <li><b>☁️ 接入 Google Apps Script 全网直连云桥</b>：无论任何手机、平板还是外网设备，免除局域网限制，随时与谷歌云盘读写同步。</li>
+              <li><b>🔄 多设备状态无感漫游 (Pull & Push)</b>：进入时镜静默拉取云端最新数据（记录、计划、反思、连赢6次、微步打卡）合并刷新，支持随时一键推送全端。</li>
+              <li><b>🌿 Obsidian 知行日志纯文本全要素直通</b>：自动组装生成完整的每日知行日记 Markdown，直传云端指定目录归档。</li>
+            </ul>
+          </div>
+
+          <!-- v1.4.1 Previous -->
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <div class="changelog-version">
                 <span>v1.4.1</span>
-                <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 解除单日限制与胜者丰碑</span>
+                <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
               </div>
               <span class="changelog-date">2026-11-16</span>
             </div>
@@ -901,8 +957,36 @@
       </div>
     </div>
 
+    <!-- 谷歌云桥配置弹窗 (Google Apps Script Cloud Bridge Modal) -->
+    <div id="cloudBridgeModal" class="modal-overlay">
+      <div class="bottom-sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span class="sheet-title">☁️ 谷歌云桥 Web App 配置</span>
+          <button id="cloudBridgeCloseBtn" class="sheet-close-btn">✕</button>
+        </div>
+        <div style="padding: 16px 20px 24px;">
+          <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px;">
+            配置 Google Apps Script 发布的 Web 应用程序 URL。任何手机在 4G/5G 蜂窝网络下均可直连云端，不再受局域网 Wi-Fi 限制。
+          </p>
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px;">Web App URL：</label>
+            <input type="text" id="cloudBridgeUrlInput" class="text-input" style="font-family: monospace; font-size: 0.85rem;" placeholder="https://script.google.com/macros/s/.../exec">
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button type="button" id="btnSaveCloudBridgeUrl" class="btn-primary" style="background: #4285F4; flex: 1;">
+              💾 保存配置
+            </button>
+            <button type="button" id="btnPullCloudNow" class="btn-secondary" style="flex: 1;">
+              📥 立即拉取云端
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
-  <script src="app.js?v=1.4.1"></script>
+  <script src="app.js?v=1.4.2"></script>
 </body>
 </html>

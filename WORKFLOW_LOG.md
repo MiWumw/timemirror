@@ -51,3 +51,14 @@
   - 同步推送至 GitHub (`main` efb99b1)，并镜像至 `CLOUD_HUB/fs_timemirror/code_mirror/`。
 - **状态**：🟢 全部落地并通过端到端实测验证。
 ---
+
+## [2026-11-17 16:15] 任务：v1.4.2 接入谷歌云盘 Google Apps Script 全设备无感云同步
+- **决策来源**：Gemini Hydrogen 手术刀任务 (ACTIVE_TASK.md)
+- **改动文件清单**：
+  - `fs/timemirror/app.js`: 接入 `CloudSyncAdapter` 引擎，实现 `pullFromCloud` (静默拉取与多设备漫游合并) 与 `pushToCloud` (全端全量 state + Obsidian Markdown 同步推送)；接入首载静默拉取、UI 按钮与配置弹窗逻辑；
+  - `fs/timemirror/index.html`: 新增复盘区与主页【☁️ 谷歌云盘全网同步】按钮、右上角配置齿轮 `⚙️`、设置页 Google Drive 云桥卡片与 `#cloudBridgeModal`；升级版本标识至 v1.4.2；
+  - `fs/timemirror/sw.js`: 升级缓存键至 `timemirror-v142-google-drive-sync`；
+  - `fs/timemirror/CHANGELOG.md`: 增补 v1.4.2 版本演化与特性记录。
+- **本地验证结果**：`node -c app.js` 语法校验通过，静态资源版本穿透对齐。
+- **状态**：🟢 代码就绪，完成镜像与 GitHub 自动化推送。
+---
