@@ -3208,6 +3208,13 @@ const CloudSyncAdapter = {
   },
   // 2. 将当前全部数据智能合并后推送至谷歌云盘 (防炸缸核心：先并集后落盘)
   async pushToCloud(dateStr) {
+    // 🛡️ 空库防呆熔断：如果本地账本没有任何记录，严禁盲目向云端推送，防止冲刷历史
+    const allLocalRecords = StorageAdapter.load('records', {});
+    const hasAnyLocalRecords = Object.values(allLocalRecords).some(list => Array.isArray(list) && list.length > 0);
+    if (!hasAnyLocalRecords) {
+      showToast('🛡️ 安全拦截：当前设备暂无本地数据，请先点击【从云端拉取】！');
+      return { success: false, message: '当前设备无本地数据，已自动熔断拦截' };
+    }
     const url = this.getUrl();
     if (!url) return { success: false, message: '未配置谷歌云桥 URL' };
 
