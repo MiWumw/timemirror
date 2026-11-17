@@ -62,3 +62,15 @@
 - **本地验证结果**：`node -c app.js` 语法校验通过，静态资源版本穿透对齐。
 - **状态**：🟢 代码就绪，完成镜像与 GitHub 自动化推送。
 ---
+
+## [2026-11-17 17:10] 任务：v1.5.0 跨端云漫游与全屏自适应版（重大里程碑落地）
+- **决策来源**：Gemini Hydrogen 极速补丁脚本 (patch_v150.py)
+- **核心落地**：
+  - `fs/timemirror/style.css`: 注入 iPad 与桌面宽屏自适应样式（>= 768px 自动舒展为 900px 呼吸工作台、统计卡片两栏自适应、抽屉居中显示）；
+  - `fs/timemirror/app.js`: 引入 `StateMerger`，支持全自定义分类跨端无缝漫游（categories 智能并集，根治多端显示“未命名”痛点），新增 `handleCloudPull` 按钮逻辑；
+  - `fs/timemirror/index.html`: 暮夜对账卡片新增【🔄 从云端拉取】独立常驻按钮，升级顶栏为 `v1.5.0 · 跨端云漫游与全屏自适应版`，增补更新日志；
+  - `fs/timemirror/sw.js`: 升级缓存版本至 `timemirror-v150-cloud-roam-responsive`；
+  - `fs/timemirror/CHANGELOG.md`: 增补 v1.5.0 里程碑记录。
+- **本地验证结果**：`node -c app.js` 语法自检 100% 通过；Git push 推送远端成功（Commit `bdac041`）。
+- **状态**：🟢 3秒极速脚本执行与验证闭环。
+---
