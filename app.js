@@ -404,10 +404,8 @@ const btnCopyDailyZhixing = document.getElementById('btnCopyDailyZhixing');
 document.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
   renderCategoryChips();
-  // Check if first time, if no records, offer sample load
-  if (Object.keys(state.records).length === 0) {
-    loadSampleData();
-  }
+  // 新设备初次载入严禁静默塞入示例数据污染真实账本
+  // (示例数据仅允许在【设置】中由用户主动点击加载)
   // 首次载入即时同步填入草稿与打卡，防止 DOM 滞后与意外空值冲刷
   renderDailyPlanSection();
   renderDailyReflectionSection();
@@ -2967,9 +2965,14 @@ const StateMerger = {
       } else {
         const cList = Array.isArray(res[d]) ? res[d] : [];
         const lList = Array.isArray(lObj[d]) ? lObj[d] : [];
+        // 如果云端已有真实记录，坚决过滤掉本地由系统预置的示例假数据 (s1~s11)
+        const hasRealCloudRecords = cList.some(r => r && r.id && !/^s\d+$/.test(r.id));
+        const filteredLocal = hasRealCloudRecords 
+          ? lList.filter(r => r && r.id && !/^s\d+$/.test(r.id))
+          : lList;
         const map = new Map();
         cList.forEach(r => { if (r && r.id) map.set(r.id, r); });
-        lList.forEach(r => {
+        filteredLocal.forEach(r => {
           if (r && r.id) {
             if (!map.has(r.id)) {
               map.set(r.id, r);
@@ -3168,6 +3171,18 @@ const CloudSyncAdapter = {
           habitsConfig: HabitManager.getConfig()
         };
         const merged = StateMerger.mergeAll(localState, data.state);
+        // 自动净化本地可能混入的系统示例假数据 (s1~s11)
+        if (merged.records) {
+          for (const d of Object.keys(merged.records)) {
+            const list = merged.records[d];
+            if (Array.isArray(list)) {
+              const hasReal = list.some(r => r && r.id && !/^s\d+$/.test(r.id));
+              if (hasReal) {
+                merged.records[d] = list.filter(r => r && r.id && !/^s\d+$/.test(r.id));
+              }
+            }
+          }
+        }
         if (merged.categories) {
           StorageAdapter.save('categories', merged.categories);
           state.categories = merged.categories;
