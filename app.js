@@ -2989,13 +2989,25 @@ const StateMerger = {
     return res;
   },
 
-  // 2. 合并晨起计划与反思（互补合并，绝不丢失任何一方输入）
+  // 2. 合并晨起计划与反思（互补合并，类型防御防崩溃）
   mergeTexts(local, cloud) {
+    const toText = (v) => {
+      if (!v) return '';
+      if (typeof v === 'string') return v.trim();
+      if (typeof v === 'object') {
+        const parts = [];
+        if (v.praise) parts.push(`【专注投入】${v.praise}`);
+        if (v.wasted) parts.push(`【时间黑洞】${v.wasted}`);
+        if (v.action) parts.push(`【明日调适】${v.action}`);
+        return parts.length > 0 ? parts.join('\n') : '';
+      }
+      return String(v).trim();
+    };
     const res = Object.assign({}, cloud || {});
     const lObj = local || {};
     for (const d of Object.keys(lObj)) {
-      const lText = (lObj[d] || '').trim();
-      const cText = (res[d] || '').trim();
+      const lText = toText(lObj[d]);
+      const cText = toText(res[d]);
       if (!cText) {
         res[d] = lText;
       } else if (!lText) {
