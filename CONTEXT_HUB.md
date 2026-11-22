@@ -43,6 +43,10 @@ flowchart LR
 
 ## 二、当前重大里程碑与已验证成果 (Verified Milestones)
 
+- [x] **🚀 Google 官方 clasp CLI 全自动部署流水线贯通 (2026-11-22 21:45 彻底告别网页手动部署)**：
+  - **本地工程化接入**：在 `D:\fzl\fs\timemirror\gas\` 全量安装并配置 Google 官方 `@google/clasp` (v3.4.1) 工具链；
+  - **安全凭证与项目绑定**：完成 Google OAuth 开发者授权绑定（账号 `mingxin2430@gmail.com`），绑定脚本项目 `1CmEl5GJU3PAqwO7WOSonC7vUTS2hR_1R6OsB7SkA2JMn00U8n9Z5s6LQ`，Token 自动隔离于 `.gitignore`；
+  - **全自动 CI/CD 原地发布**：云桥代码本地维护（`gas/Code.js`），反重力可一键执行 `clasp push` 与 `clasp deploy` 原地升级现有 Web App 部署，**URL 终身不变，代码自动上传、版本自动递增、部署自动生效，彻底消灭手动网页折腾**！
 - [x] **🎉 双核全链路实机验证彻底跑通 (2026-11-22 16:38 用户实机全链路跑通验收)**：
   - **云端大脑 ➔ 云桥 ➔ 移动端双手全自动贯通**：用户在 Google Apps Script 完成新版本部署后，在手机/iPad 时镜点击【☁️ 云端拉取】，成功将云端《今日计划.md》秒级拉入时镜，自动智能分离「时间节奏大表」与「交互勾选核心待办」，全程零复制、零手动粘贴！
   - **零调整极速记账**：新建时间块时自动识别手机当前时间，随做随记，免除手动调整滚轮。

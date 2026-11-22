@@ -1,0 +1,13 @@
+{
+  "name": "timemirror-gas-bridge",
+  "version": "1.0.0",
+  "description": "Google Apps Script bridge for TimeMirror",
+  "private": true,
+  "scripts": {
+    "push": "clasp push",
+    "deploy": "clasp deploy"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.4.1"
+  }
+}

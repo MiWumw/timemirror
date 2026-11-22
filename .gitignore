@@ -4,3 +4,9 @@ __pycache__/
 *.log
 tray_debug.log
 .DS_Store
+node_modules/
+.clasp.json
+.clasprc.json
+gas/node_modules/
+gas/.clasp.json
+gas/.clasprc.json
