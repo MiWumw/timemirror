@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.6.1">
+  <link rel="stylesheet" href="style.css?v=1.6.2">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.1</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.2</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -599,11 +599,12 @@
           <!-- Quick Duration Helper Chips -->
           <div class="duration-quick-chips">
             <span style="font-size: 0.72rem; color: var(--text-muted); align-self: center;">一键时长：</span>
-            <button type="button" class="quick-dur-btn" data-mins="15">+15分钟</button>
-            <button type="button" class="quick-dur-btn" data-mins="30">+30分钟</button>
-            <button type="button" class="quick-dur-btn" data-mins="45">+45分钟</button>
-            <button type="button" class="quick-dur-btn" data-mins="60">+1小时</button>
-            <button type="button" class="quick-dur-btn" data-mins="90">+1.5小时</button>
+            <button type="button" class="quick-now-btn" id="btnSetEndNow" style="background: rgba(14, 165, 233, 0.12); color: var(--primary); font-weight: 700; border: 1px solid rgba(14, 165, 233, 0.3); border-radius: var(--radius-sm); padding: 4px 8px; font-size: 0.72rem; cursor: pointer;">🕒 结束设为当下</button>
+            <button type="button" class="quick-dur-btn" data-mins="15">+15m</button>
+            <button type="button" class="quick-dur-btn" data-mins="30">+30m</button>
+            <button type="button" class="quick-dur-btn" data-mins="45">+45m</button>
+            <button type="button" class="quick-dur-btn" data-mins="60">+1h</button>
+            <button type="button" class="quick-dur-btn" data-mins="90">+1.5h</button>
           </div>
 
           <!-- Note / Details -->
@@ -689,12 +690,28 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.6.1 Current -->
+    <!-- v1.6.2 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
+          <span>v1.6.2</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 手机当下时间智能对齐与云端极速版</span>
+        </div>
+        <span class="changelog-date">2026-11-22</span>
+      </div>
+      <ul class="changelog-list">
+        <li><b>🕒 结束时间秒级对齐手机当下时刻</b>：新建时间块时，开始时间自动继承上一块结束时间，结束时间<b>直接精准对齐手机当前时间</b>，每次做完事打开时镜零调整直接保存！</li>
+        <li><b>⚡ 增设【🕒 结束设为当下】快捷按钮</b>：弹窗一键时长栏新增当下时间锚点，随时一键拉回手机当前时间。</li>
+        <li><b>🚀 针对 VPN 场景优化云端推送耗时</b>：云端推送前置合并引入 4 秒超时熔断保护，防止高延时下发起连续阻塞请求导致等待半分钟。</li>
+      </ul>
+    </div>
+
+    <!-- v1.6.1 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
           <span>v1.6.1</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 今日计划云端智能解析与直通版</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
         </div>
         <span class="changelog-date">2026-11-22</span>
       </div>
@@ -1035,6 +1052,6 @@
 
   </div>
 
-  <script src="app.js?v=1.6.1"></script>
+  <script src="app.js?v=1.6.2"></script>
 </body>
 </html>

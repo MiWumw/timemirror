@@ -493,6 +493,18 @@ function initEventListeners() {
     });
   });
 
+  // 一键将结束时间设为手机当下真实时刻
+  const btnSetEndNow = document.getElementById('btnSetEndNow');
+  if (btnSetEndNow) {
+    btnSetEndNow.addEventListener('click', (e) => {
+      e.preventDefault();
+      const now = new Date();
+      const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      inputEndTime.value = nowStr;
+      showToast(`🕒 结束时间已设为当前时刻 ${nowStr}`);
+    });
+  }
+
   // Record Form Submit
   recordForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1250,15 +1262,35 @@ function openRecordModal(existingRecord = null, defaultStart = null, defaultEnd 
       inputStartTime.value = defaultStart;
       inputEndTime.value = defaultEnd;
     } else {
-      // Find end time of last recorded item today
+      // 智能识别：接续上一个结束时间作为开始时间；结束时间自动对齐手机当下真实时间！
       const records = getTodayRecords().slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+      const isViewingToday = (state.currentDate === getTodayString());
+      const now = new Date();
+      const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const nowMins = timeToMinutes(nowStr);
+
       if (records.length > 0) {
         const lastRec = records[records.length - 1];
         inputStartTime.value = lastRec.end;
-        inputEndTime.value = minutesToTime(timeToMinutes(lastRec.end) + 30);
+        const lastEndMins = timeToMinutes(lastRec.end);
+
+        if (isViewingToday && nowMins > lastEndMins) {
+          // 手机当下时间晚于上一条记录结束时间，直接采用手机当前真实时间！
+          inputEndTime.value = nowStr;
+        } else {
+          // 若在手机当前时间之前或查看历史日期，顺延 30 分钟
+          inputEndTime.value = minutesToTime(Math.min(24 * 60 - 1, lastEndMins + 30));
+        }
       } else {
-        inputStartTime.value = '07:00';
-        inputEndTime.value = '07:30';
+        if (isViewingToday) {
+          // 当天首条记录：结束时间直接为手机当下时刻，开始时间默认往前推30分钟
+          inputEndTime.value = nowStr;
+          const defaultStartMins = Math.max(0, nowMins - 30);
+          inputStartTime.value = minutesToTime(defaultStartMins);
+        } else {
+          inputStartTime.value = '07:00';
+          inputEndTime.value = '07:30';
+        }
       }
     }
     inputNote.value = '';
@@ -3755,9 +3787,12 @@ const CloudSyncAdapter = {
       habitsConfig: HabitManager.getConfig()
     };
 
-    // 推送前与云端并集
+    // 推送前与云端并集 (带 4 秒超时熔断保护，防止 VPN 慢速代理下双重串行等待导致卡顿半分钟)
     try {
-      const pullResp = await fetch(`${url}?action=pull`, { method: 'GET', mode: 'cors' });
+      const pullCtrl = new AbortController();
+      const pullTimer = setTimeout(() => pullCtrl.abort(), 4000);
+      const pullResp = await fetch(`${url}?action=pull`, { method: 'GET', mode: 'cors', signal: pullCtrl.signal });
+      clearTimeout(pullTimer);
       if (pullResp.ok) {
         const pullData = await pullResp.json();
         if (pullData && pullData.state) {
@@ -3778,7 +3813,7 @@ const CloudSyncAdapter = {
         }
       }
     } catch (pullErr) {
-      console.warn('推送前拉取合并跳过 (网络或离线):', pullErr);
+      console.warn('推送前快速拉取合并已超时或跳过，直接基于本地最新状态打包推送:', pullErr);
     }
 
     const payload = {
