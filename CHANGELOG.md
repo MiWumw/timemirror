@@ -4,6 +4,21 @@
 
 ---
 
+## 🚀 [v1.6.1] - 2026-11-22 · 今日计划云端智能解析与直通版
+
+### 🌟 核心架构突破与新功能发布 (Major Enhancements)
+1. **🎯 CloudSyncAdapter 原生支持提取解析云端《今日计划.md》**：
+   - 彻底闭环 Gemini 云端大脑与时镜本地双手的全自动交接；
+   - `CloudSyncAdapter.pullFromCloud(dateStr)` 全面支持识别云端返回的 `planMarkdown`、`todayPlan`、`todayPlanMarkdown` 以及独立的 `今日计划.md`；
+   - 晚上主人与 Gemini 聊完，Gemini 将计划保存至云盘，次日晨起主人在手机时镜轻触【☁️ 云端拉取】，时镜即自动提取并灌装入库，无需任何手动复制粘贴！
+2. **🌐 双核网关全通道双重保险**：
+   - **Google Apps Script 云桥**：支持在 `doGet(e)` 中一并返回云盘内最新的 `今日计划.md` 文本；
+   - **本地 28888 局域网服务 (`obsidian_sync_server.py`)**：`extract_plan_from_obsidian()` 智能扩展，不仅提取当天知行日志中的晨起立志，更兼查 G 盘镜像与本地知识库中的 `今日计划.md` 与 `timemirror_state.json`，两端无缝协同。
+3. **⚡ 智能渲染与大表待办双向驱动**：
+   - 云端拉取成功的 Markdown 文本自动触发解耦排版引擎，时间表进入纯净时间轴流，待办项进入交互勾选列表，打勾实时保存至本地与数据总线。
+
+---
+
 ## 🚀 [v1.6.0] - 2026-11-22 · 双核云端直通、时间节奏与可打勾待办解耦渲染版
 
 ### 🌟 核心架构突破与新功能发布 (Major Enhancements)

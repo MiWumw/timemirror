@@ -600,9 +600,9 @@ function initEventListeners() {
     btnPullPlanBridge.addEventListener('click', async () => {
       const cloudUrl = CloudSyncAdapter.getUrl();
       if (cloudUrl) {
-        showToast('☁️ 正在从谷歌云盘拉取最新计划与漫游状态...');
+        showToast('☁️ 正在从谷歌云盘拉取《今日计划.md》与漫游状态...');
         try {
-          const st = await CloudSyncAdapter.pullFromCloud();
+          const st = await CloudSyncAdapter.pullFromCloud(state.currentDate);
           if (st) {
             renderDailyPlanSection();
             renderDailyReflectionSection();
@@ -611,9 +611,14 @@ function initEventListeners() {
             renderWinnerTrials();
             renderBodyStateSection();
             updateUI();
-            showToast('🟢 成功从谷歌云盘拉取今日计划与漫游数据！');
+            const hasPlan = state.plans[state.currentDate] && state.plans[state.currentDate].trim();
+            if (hasPlan) {
+              showToast('🟢 成功从云端同步《今日计划.md》，日程与待办已就绪！');
+            } else {
+              showToast('🟢 成功从谷歌云盘拉取数据，今日暂无预设计划');
+            }
           } else {
-            showToast('⚠️ 未能从谷歌云盘拉取到新数据，请检查网络');
+            showToast('⚠️ 未能从谷歌云盘拉取到新数据，请检查网络或云桥设置');
           }
         } catch (e) {
           showToast('❌ 云端拉取失败: ' + e.message);
@@ -3625,15 +3630,19 @@ const CloudSyncAdapter = {
       localStorage.removeItem('tm_cloud_bridge_url');
     }
   },
-  // 1. 从谷歌云盘拉取最新全量状态并智能合并 (分类/流水/6胜全要素漫游)
-  async pullFromCloud() {
+  // 1. 从谷歌云盘拉取最新全量状态并智能合并 (支持解析云端独立《今日计划.md》与漫游合并)
+  async pullFromCloud(targetDate) {
     const url = this.getUrl();
     if (!url) return null;
+    const queryDate = targetDate || (state ? state.currentDate : getTodayString());
     try {
-      const resp = await fetch(`${url}?action=pull`, { method: 'GET', mode: 'cors' });
+      const resp = await fetch(`${url}?action=pull&date=${encodeURIComponent(queryDate)}`, { method: 'GET', mode: 'cors' });
       if (!resp.ok) return null;
       const data = await resp.json();
-      if (data && data.state) {
+      if (!data) return null;
+
+      let merged = null;
+      if (data.state) {
         const localState = {
           categories: StorageAdapter.load('categories', DEFAULT_CATEGORIES),
           records: StorageAdapter.load('records', {}),
@@ -3645,7 +3654,7 @@ const CloudSyncAdapter = {
           winnerTrials: WinnerTrialManager.getData(),
           habitsConfig: HabitManager.getConfig()
         };
-        const merged = StateMerger.mergeAll(localState, data.state);
+        merged = StateMerger.mergeAll(localState, data.state);
         // 自动净化本地可能混入的系统示例假数据 (s1~s11)
         if (merged.records) {
           for (const d of Object.keys(merged.records)) {
@@ -3671,8 +3680,27 @@ const CloudSyncAdapter = {
         if (merged.bodyState) { StorageAdapter.save('body_state', merged.bodyState); state.bodyState = merged.bodyState; }
         if (merged.winnerTrials) StorageAdapter.save('winner_trials', merged.winnerTrials);
         if (merged.habitsConfig) StorageAdapter.save('habits_config', merged.habitsConfig);
-        return merged;
       }
+
+      // 🎯 核心增强：自动解析并载入云端返回的《今日计划.md》/ planMarkdown
+      const rawCloudPlan = data.planMarkdown || data.todayPlan || data.todayPlanMarkdown || data.todayPlanContent || (typeof data.plan === 'string' ? data.plan : null);
+      if (rawCloudPlan && typeof rawCloudPlan === 'string' && rawCloudPlan.trim()) {
+        const cleanPlan = rawCloudPlan.trim();
+        state.plans[queryDate] = cleanPlan;
+        StorageAdapter.save('plans', state.plans);
+        if (inputDailyPlan && queryDate === state.currentDate) {
+          inputDailyPlan.value = cleanPlan;
+          autoResizeTextarea(inputDailyPlan);
+        }
+        if (!merged) {
+          merged = { plans: state.plans };
+        } else {
+          merged.plans = state.plans;
+        }
+        console.log(`☁️ 成功从云端提取并注入《今日计划.md》(${queryDate})`);
+      }
+
+      return merged || data;
     } catch (e) {
       console.warn('云端拉取同步失败(可能处于离线状态):', e);
     }

@@ -77,23 +77,52 @@ def save_timemirror_state(state_dict):
             pass
 
 def extract_plan_from_obsidian(date_str):
-    """从 Obsidian 当天知行日志中提取晨起立志的 Markdown 内容"""
+    """从 Obsidian 当天知行日志或云端/知识库《今日计划.md》中提取晨起立志的 Markdown 内容"""
     diary_dir = os.path.join(VAULT_ROOT, DIARY_SUBDIR)
     target_file = os.path.join(diary_dir, f"{date_str}_每日知行日志.md")
-    if not os.path.exists(target_file):
-        return ""
+    if os.path.exists(target_file):
+        try:
+            with open(target_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            pattern_plan = r"###\s*🎯\s*晨起立志[^\n]*\n([\s\S]*?)(?=\n###\s*⚡\s*暮夜对账|\n###\s*🪞|\n#|\n---|\Z)"
+            match = re.search(pattern_plan, content)
+            if match:
+                text = match.group(1).strip()
+                # 移除骨架引用提示语
+                text = re.sub(r"^>\s*顺应今日身心气能[^\n]*\n?", "", text).strip()
+                if text:
+                    return text
+        except Exception:
+            pass
+
+    # 兼查云盘镜像与本地独立的《今日计划.md》
+    candidate_paths = [
+        os.path.join(r"G:\我的云端硬盘", "今日计划.md"),
+        os.path.join(r"G:\我的云端硬盘\TimeMirror_Sync", "今日计划.md"),
+        os.path.join(VAULT_ROOT, "今日计划.md"),
+        os.path.join(VAULT_ROOT, "04_知行生活", "今日计划.md"),
+        os.path.join(diary_dir, "今日计划.md"),
+    ]
+    for cp in candidate_paths:
+        if os.path.exists(cp):
+            try:
+                with open(cp, "r", encoding="utf-8") as f:
+                    p_text = f.read().strip()
+                if p_text:
+                    return p_text
+            except Exception:
+                pass
+
+    # 最后兼查 timemirror_state.json 中的 plans
     try:
-        with open(target_file, "r", encoding="utf-8") as f:
-            content = f.read()
-        pattern_plan = r"###\s*🎯\s*晨起立志[^\n]*\n([\s\S]*?)(?=\n###\s*⚡\s*暮夜对账|\n###\s*🪞|\n#|\n---|\Z)"
-        match = re.search(pattern_plan, content)
-        if match:
-            text = match.group(1).strip()
-            # 移除骨架引用提示语
-            text = re.sub(r"^>\s*顺应今日身心气能[^\n]*\n?", "", text).strip()
-            return text
-    except Exception as e:
+        cur_st = load_timemirror_state()
+        if cur_st.get("plans") and date_str in cur_st["plans"]:
+            p_val = cur_st["plans"][date_str].strip()
+            if p_val:
+                return p_val
+    except Exception:
         pass
+
     return ""
 
 httpd_server = None
@@ -444,7 +473,7 @@ class SyncHandler(BaseHTTPRequestHandler):
             resp = {
                 "status": "online",
                 "app": "TimeMirror-Obsidian-Sync-Bridge",
-                "version": "1.6.0",
+                "version": "1.6.1",
                 "vault": VAULT_ROOT,
                 "lan_ip": lan_ip,
                 "port": PORT,

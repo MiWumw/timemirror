@@ -85,7 +85,17 @@
 - **状态**：🟢 系统环境彻底减熵归零，STANDBY 待命。
 ---
 
-## [2026-11-22 15:15] 任务：v1.6.0 双核云端直通、时间节奏与可打勾待办解耦渲染版全量落地
+## [2026-11-22 15:45] 任务：v1.6.1 今日计划云端智能解析与直通版全量落地
+- **决策来源**：Gemini 大脑协同建议与用户需求反馈
+- **核心落地**：
+  - `fs/timemirror/app.js`: 在 `CloudSyncAdapter.pullFromCloud(targetDate)` 中增加对云端 `planMarkdown`、`todayPlan`、`todayPlanMarkdown` 及独立《今日计划.md》的解析与自动注入；在 `btnPullPlanBridge` 中提供精准同步反馈；
+  - `fs/timemirror/obsidian_sync_server.py`: 版本升级为 `1.6.1`；`extract_plan_from_obsidian()` 智能扩展兼查云端镜像路径与本地知识库中的 `今日计划.md`；
+  - `fs/timemirror/index.html`: 顶栏升级至 `v1.6.1`，内置弹窗新增 `v1.6.1 (2026-11-22)` 记录，静态资源版本穿透对齐；
+  - `fs/timemirror/sw.js`: 升级缓存键至 `timemirror-v161-cloud-plan-parser`；
+  - `fs/timemirror/CHANGELOG.md` & `CONTEXT_HUB.md`: 增补 `v1.6.1` 迭代记录。
+- **本地验证结果**：`node -c app.js` 与 `python -m py_compile` 语法校验通过。
+- **状态**：🟢 全部落地完成，严格遵循版本号与前端内置弹窗双锁红线。
+---
 - **决策来源**：用户指导与双核协同升级
 - **核心落地**：
   - `fs/timemirror/index.html`: 顶栏升级至 `v1.6.0`；在 `#changelogModal` 顶部插入 `v1.6.0 (2026-11-22)` 当前版本卡片；晨起立志卡片新增【📋 粘贴载入】按钮，并将拉取按钮重构为直通谷歌云盘；资源引入增加 `?v=1.6.0` 穿透；

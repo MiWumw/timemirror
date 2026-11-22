@@ -2,8 +2,8 @@
 
 > **文档性质**：面向多智能体（AI Pair Programmer）与开发者跨会话接力的活态系统枢纽。  
 > **维护规则**：AI 需根据用户对话与功能演进**自发、主动增删修改**，无需等待用户催促，始终保持信息最新。  
-> **当前版本**：v1.6.0 · 双核云端直通、时间节奏与可打勾待办解耦渲染版  
-> **更新时间**：2026-11-22 15:15
+> **当前版本**：v1.6.1 · 今日计划云端智能解析与直通版  
+> **更新时间**：2026-11-22 15:45
 
 ---
 
@@ -16,20 +16,22 @@ flowchart LR
     subgraph 云端大脑 ["☁️ 云端大脑 (Gemini / 数字管家)"]
         G["网页/手机端 Gemini\n晚间推演复盘 21:00~23:00"]
         G -->|生成次日安排| GM["今日计划 Markdown\n(时间节奏流 + 核心待办 + 进阶选做)"]
+        GM -->|直接落盘| GMD["云盘 今日计划.md"]
     end
 
-    subgraph 移动端 ["📱 移动端 (手机 PWA v1.6.0)"]
+    subgraph 移动端 ["📱 移动端 (手机 PWA v1.6.1)"]
         A["时镜 Web App\nhttps://miwumw.github.io/timemirror/"]
-        A -->|一键【📋 粘贴载入】或【☁️ 云端拉取】| B[("本地 localStorage\n智能解耦：时间表流展示 + Checkbox 打勾\n100% 隐私绝不上公网")]
+        A -->|一键【☁️ 云端拉取】或【📋 粘贴载入】| B[("本地 localStorage\n智能解耦：时间表流展示 + Checkbox 打勾\n100% 隐私绝不上公网")]
     end
 
     subgraph 云桥与PC端 ["☁️ 谷歌云盘云桥 & 本地网关"]
-        GAS["Google Apps Script 谷歌云桥\n全网直连无需依赖电脑局域网"]
+        GAS["Google Apps Script 谷歌云桥\n全网直连读写 timemirror_state.json 与 今日计划.md"]
         C["obsidian_sync_server.py:28888\n(本地系统托盘网关)"]
         D["Obsidian 知识库\nD:\\cangku\\浮生"]
         E["知行日志归档\n04_知行生活/身心纪事/YYYY-MM-DD_每日知行日志.md"]
     end
 
+    GMD -->|GAS 读取并打包| GAS
     A <-->|全网双向漫游同步| GAS
     A -.->|局域网直通写入 (可选)| C
     C -->|全要素落盘| E
@@ -39,6 +41,10 @@ flowchart LR
 
 ## 二、当前重大里程碑与已验证成果 (Verified Milestones)
 
+- [x] **🎯 今日计划云端智能解析与直通 (v1.6.1 彻底闭环 Gemini 与时镜双核自动化交接)**：
+  - **原生嗅探云端今日计划**：`CloudSyncAdapter.pullFromCloud(dateStr)` 全面支持直接嗅探云端返回的 `planMarkdown` / `todayPlan` 字段与独立的 `今日计划.md`；
+  - **无需复制粘贴的一键流转**：晚间主人与 Gemini 聊完，Gemini 只要在云盘保存 `今日计划.md`，次日晨起主人在手机时镜点击【☁️ 云端拉取】，时镜自动将日程大表与可打勾待办灌装入库；
+  - **双核网关双重保险**：不仅 Google Apps Script 云桥支持 `planMarkdown` 直传，本地 28888 网关服务 `obsidian_sync_server.py` 亦同步升级，兼查 G 盘镜像与本地日记目录中的 `今日计划.md` 与状态总线。
 - [x] **⏱️ 时间节奏与可打勾待办解耦 & 谷歌云桥拉取 (v1.6.0 深度契合 Gemini 真实规划输出)**：
   - **解耦渲染**：彻底根除将「今日时间节奏」日程流水（如 `- **08:30 - 09:30**｜...`）误加 Checkbox 的问题，时间节奏自动呈现为高颜值时间徽章流，仅对「核心待办」与「进阶选做」渲染大触控 Checkbox；
   - **一键粘贴载入**：在晨起立志卡片直接增设【📋 粘贴载入】按钮，手机从 Gemini 聊天一键复制后轻触秒级自动分离时间流与待办项；
