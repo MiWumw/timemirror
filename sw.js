@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v150-pull-button-ready';
+const CACHE_NAME = 'timemirror-v150-markdown-checklist';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.4.2',
-  './app.js?v=1.4.2',
+  './style.css?v=1.5.0',
+  './app.js?v=1.5.0',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

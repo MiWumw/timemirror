@@ -287,6 +287,7 @@ function saveBodyState() {
 let state = {
   currentDate: getTodayString(),
   activeTab: 'timeline',
+  planViewMode: localStorage.getItem('tm_plan_view_mode') || 'checklist',
   categories: loadCategories(),
   records: loadRecords(),
   plans: loadPlans(),
@@ -378,6 +379,10 @@ const inputStressDetailNotes = document.getElementById('inputStressDetailNotes')
 
 const inputDailyPlan = document.getElementById('inputDailyPlan');
 const btnInsertPlanTemplate = document.getElementById('btnInsertPlanTemplate');
+const planChecklistContainer = document.getElementById('planChecklistContainer');
+const btnTogglePlanView = document.getElementById('btnTogglePlanView');
+const btnPullPlanBridge = document.getElementById('btnPullPlanBridge');
+const planStatsTag = document.getElementById('planStatsTag');
 
 const execStreamSummary = document.getElementById('execStreamSummary');
 const btnGoTimelineAdd = document.getElementById('btnGoTimelineAdd');
@@ -415,6 +420,11 @@ document.addEventListener('DOMContentLoaded', () => {
   renderBodyStateSection();
   updateUI();
   registerServiceWorker();
+
+  // 🪞 首次载入若今日计划尚为空，尝试从本地电脑网关静默拉取云端计划
+  if (!state.plans[state.currentDate]) {
+    pullPlanFromBridge(true);
+  }
 
   // ☁️ 首次载入若配置了云桥，尝试自动静默从谷歌云盘拉取同步最新状态
   if (CloudSyncAdapter.getUrl()) {
@@ -539,17 +549,42 @@ function initEventListeners() {
     inputDailyPlan.addEventListener('input', handlePlanInput);
   }
 
-  // 计划模板插入
+  // 计划视图切换 (清单模式 vs 源码编辑)
+  if (btnTogglePlanView) {
+    btnTogglePlanView.addEventListener('click', () => {
+      state.planViewMode = (state.planViewMode === 'checklist') ? 'raw' : 'checklist';
+      localStorage.setItem('tm_plan_view_mode', state.planViewMode);
+      renderDailyPlanSection();
+      if (state.planViewMode === 'raw' && inputDailyPlan) {
+        inputDailyPlan.focus();
+      }
+    });
+  }
+
+  // 计划拉取按钮 (从电脑局域网/云端网关获取)
+  if (btnPullPlanBridge) {
+    btnPullPlanBridge.addEventListener('click', () => {
+      pullPlanFromBridge(false);
+    });
+  }
+
+  // 计划模板插入 (支持双核标准 Markdown 待办格式)
   if (btnInsertPlanTemplate && inputDailyPlan) {
     btnInsertPlanTemplate.addEventListener('click', () => {
-      const current = inputDailyPlan.value.trim();
+      const current = (state.plans[state.currentDate] || '').trim();
+      let newPlan = '';
       if (!current) {
-        inputDailyPlan.value = '1. \n2. \n3. ';
+        newPlan = '### 🎯 晨起立志（核心三要务）\n- [ ] 1. \n- [ ] 2. \n- [ ] 3. \n\n### ⚡ 进阶待办（自由选做）\n- [ ] ';
       } else {
-        inputDailyPlan.value = current + '\n' + (current.split('\n').length + 1) + '. ';
+        newPlan = current + '\n- [ ] ';
       }
+      state.plans[state.currentDate] = newPlan;
+      inputDailyPlan.value = newPlan;
       handlePlanInput();
-      inputDailyPlan.focus();
+      renderDailyPlanSection();
+      if (state.planViewMode === 'raw') {
+        inputDailyPlan.focus();
+      }
     });
   }
 
@@ -1567,6 +1602,8 @@ function flushZhixingDrafts() {
 
 // 计划实时自动保存防抖处理
 let planSaveTimer = null;
+let planBridgeSyncTimer = null;
+
 function handlePlanInput() {
   if (!inputDailyPlan) return;
   const val = inputDailyPlan.value;
@@ -1588,6 +1625,327 @@ function handlePlanInput() {
       tag.textContent = '🟢 实时已存';
     }
   }, 200);
+
+  clearTimeout(planBridgeSyncTimer);
+  planBridgeSyncTimer = setTimeout(() => {
+    syncPlanToBridge(state.currentDate, val);
+  }, 800);
+}
+
+// ========================================================
+// 🎯 晨起立志 · Markdown Checkbox 动态解析与交互引擎 (v1.5.0)
+// ========================================================
+
+// 从 Markdown 文本中提取结构化项
+function parsePlanMarkdown(markdown) {
+  if (!markdown) return [];
+  const lines = markdown.split('\n');
+  const items = [];
+  
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      items.push({ type: 'empty', lineIndex: idx });
+      return;
+    }
+    
+    // 匹配 Markdown 标题：### 🎯 晨起立志（核心三要务） 或 ## 标题
+    if (trimmed.startsWith('#')) {
+      const match = trimmed.match(/^(#+)\s*(.*)$/);
+      if (match) {
+        items.push({
+          type: 'heading',
+          level: match[1].length,
+          text: match[2],
+          raw: line,
+          lineIndex: idx
+        });
+        return;
+      }
+    }
+    
+    // 匹配引用说明：> 顺应今日身心气能...
+    if (trimmed.startsWith('>')) {
+      items.push({
+        type: 'quote',
+        text: trimmed.replace(/^>\s*/, ''),
+        raw: line,
+        lineIndex: idx
+      });
+      return;
+    }
+    
+    // 匹配复选框待办：- [ ] 或 - [x] 或 - [X]
+    const todoMatch = trimmed.match(/^-\s*\[([ xX])\]\s*(.*)$/);
+    if (todoMatch) {
+      const isChecked = todoMatch[1].toLowerCase() === 'x';
+      items.push({
+        type: 'todo',
+        checked: isChecked,
+        text: todoMatch[2],
+        raw: line,
+        lineIndex: idx
+      });
+      return;
+    }
+    
+    // 匹配无复选框的数字序号：1. 八段锦...
+    const numMatch = trimmed.match(/^(\d+[\.\、])\s*(.*)$/);
+    if (numMatch) {
+      items.push({
+        type: 'todo',
+        checked: false,
+        text: `${numMatch[1]} ${numMatch[2]}`,
+        raw: line,
+        lineIndex: idx,
+        isNumbered: true
+      });
+      return;
+    }
+
+    // 匹配普通列表项：- 事项
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      items.push({
+        type: 'todo',
+        checked: false,
+        text: trimmed.replace(/^[-*]\s*/, ''),
+        raw: line,
+        lineIndex: idx
+      });
+      return;
+    }
+    
+    // 其他普通文本行，也作为待办渲染
+    items.push({
+      type: 'todo',
+      checked: false,
+      text: trimmed,
+      raw: line,
+      lineIndex: idx
+    });
+  });
+  
+  return items;
+}
+
+// 切换清单中某项完成状态
+function handleTogglePlanItem(lineIndex) {
+  const currentPlan = state.plans[state.currentDate] || '';
+  const lines = currentPlan.split('\n');
+  if (lineIndex < 0 || lineIndex >= lines.length) return;
+  
+  const line = lines[lineIndex];
+  const trimmed = line.trim();
+  let newLine = line;
+  
+  if (/^-\s*\[\s*\]/.test(trimmed)) {
+    newLine = line.replace(/-\s*\[\s*\]/, '- [x]');
+  } else if (/^-\s*\[[xX]\]/.test(trimmed)) {
+    newLine = line.replace(/-\s*\[[xX]\]/, '- [ ]');
+  } else if (/^\d+[\.\、]/.test(trimmed)) {
+    newLine = `- [x] ${trimmed}`;
+  } else if (trimmed.startsWith('- ')) {
+    newLine = `- [x] ${trimmed.substring(2)}`;
+  } else {
+    newLine = `- [x] ${trimmed}`;
+  }
+  
+  lines[lineIndex] = newLine;
+  const updatedPlan = lines.join('\n');
+  
+  // 更新状态
+  state.plans[state.currentDate] = updatedPlan;
+  if (inputDailyPlan) {
+    inputDailyPlan.value = updatedPlan;
+    autoResizeTextarea(inputDailyPlan);
+  }
+  
+  // 触觉轻微振动
+  if (navigator.vibrate) {
+    try { navigator.vibrate(15); } catch (e) {}
+  }
+  
+  // 保存本地与快照
+  savePlans();
+  saveZhixingSnapshot('plan', updatedPlan);
+  
+  // 刷新界面渲染
+  renderDailyPlanSection();
+  
+  // 异步防抖向电脑网关保存
+  clearTimeout(planBridgeSyncTimer);
+  planBridgeSyncTimer = setTimeout(() => {
+    syncPlanToBridge(state.currentDate, updatedPlan);
+  }, 400);
+}
+
+// 异步静默将计划推送到本地电脑网关
+async function syncPlanToBridge(dateStr, planText) {
+  const serverInput = document.getElementById('obsidianServerUrl');
+  let serverUrl = (serverInput ? serverInput.value.trim() : '') || localStorage.getItem('tm_obsidian_server');
+  if (!serverUrl) {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      serverUrl = `http://${window.location.hostname}:28888`;
+    } else {
+      serverUrl = 'http://192.168.31.133:28888';
+    }
+  }
+  serverUrl = serverUrl.replace(/\/+$/, '');
+  
+  try {
+    const resp = await fetch(`${serverUrl}/api/plan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: dateStr, planText: planText })
+    });
+    if (resp.ok) {
+      const tag = document.getElementById('planAutoSaveTag');
+      if (tag) {
+        tag.className = 'auto-save-tag';
+        tag.textContent = '🟢 双核已存';
+      }
+    }
+  } catch (e) {
+    // 离线静默，本地 LocalStorage 依然绝对保全
+  }
+}
+
+// 从电脑或云端拉取今日计划
+async function pullPlanFromBridge(silent = false) {
+  const serverInput = document.getElementById('obsidianServerUrl');
+  let serverUrl = (serverInput ? serverInput.value.trim() : '') || localStorage.getItem('tm_obsidian_server');
+  if (!serverUrl) {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      serverUrl = `http://${window.location.hostname}:28888`;
+    } else {
+      serverUrl = 'http://192.168.31.133:28888';
+    }
+  }
+  serverUrl = serverUrl.replace(/\/+$/, '');
+  
+  try {
+    const resp = await fetch(`${serverUrl}/api/plan?date=${state.currentDate}`, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (!resp.ok) throw new Error('网络返回异常');
+    const data = await resp.json();
+    if (data && data.success && data.planText) {
+      state.plans[state.currentDate] = data.planText;
+      if (inputDailyPlan) {
+        inputDailyPlan.value = data.planText;
+        autoResizeTextarea(inputDailyPlan);
+      }
+      savePlans();
+      saveZhixingSnapshot('plan', data.planText);
+      renderDailyPlanSection();
+      if (!silent) {
+        showToast('🟢 已成功拉取电脑/云端最新计划！');
+      }
+      return true;
+    } else if (!silent) {
+      showToast('ℹ️ 电脑端暂无今日预置计划');
+    }
+  } catch (e) {
+    if (!silent) {
+      showToast('⚠️ 未能连接到电脑同步服务，请确认在局域网内且服务已开启');
+    }
+  }
+  return false;
+}
+
+// 2. 第一段：今日计划 (晨起立志) 渲染
+function renderDailyPlanSection() {
+  if (!inputDailyPlan) return;
+  const currentPlan = state.plans[state.currentDate] || '';
+  inputDailyPlan.value = currentPlan;
+  autoResizeTextarea(inputDailyPlan);
+
+  const tag = document.getElementById('planAutoSaveTag');
+  if (tag) {
+    tag.className = 'auto-save-tag';
+    tag.textContent = '🟢 实时已存';
+  }
+
+  const mode = state.planViewMode || 'checklist';
+  if (btnTogglePlanView) {
+    btnTogglePlanView.textContent = (mode === 'checklist') ? '✏️ 源码编辑' : '📋 清单模式';
+  }
+
+  if (mode === 'raw') {
+    if (planChecklistContainer) planChecklistContainer.style.display = 'none';
+    inputDailyPlan.style.display = 'block';
+    if (planStatsTag) planStatsTag.style.display = 'none';
+    return;
+  }
+
+  // 清单模式渲染
+  inputDailyPlan.style.display = 'none';
+  if (!planChecklistContainer) return;
+  planChecklistContainer.style.display = 'flex';
+
+  const items = parsePlanMarkdown(currentPlan);
+  const todoItems = items.filter(it => it.type === 'todo');
+  const completedCount = todoItems.filter(it => it.checked).length;
+  const totalCount = todoItems.length;
+
+  if (planStatsTag) {
+    if (totalCount > 0) {
+      planStatsTag.style.display = 'inline-flex';
+      if (completedCount === totalCount) {
+        planStatsTag.style.background = 'rgba(16, 185, 129, 0.2)';
+        planStatsTag.textContent = `🎉 全部完成 (${totalCount}/${totalCount})`;
+      } else {
+        planStatsTag.style.background = 'rgba(16, 185, 129, 0.12)';
+        planStatsTag.textContent = `${completedCount}/${totalCount} 完成`;
+      }
+    } else {
+      planStatsTag.style.display = 'none';
+    }
+  }
+
+  if (items.length === 0 || (!currentPlan.trim())) {
+    planChecklistContainer.innerHTML = `
+      <div class="plan-empty-hint">
+        🌱 今日暂无计划事项<br>
+        <span style="font-size: 0.76rem; color: var(--text-light); margin-top: 4px; display: inline-block;">
+          点击右上角【⚡ 1.2.3.模板】或【☁️ 拉取计划】开启今日规划
+        </span>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  let inSection = false;
+
+  items.forEach(item => {
+    if (item.type === 'heading') {
+      if (inSection) html += `</div>`;
+      html += `
+        <div class="plan-section-block">
+          <div class="plan-section-header">
+            <span>${escapeHtml(item.text)}</span>
+          </div>
+      `;
+      inSection = true;
+    } else if (item.type === 'quote') {
+      html += `<div class="plan-item-quote">“${escapeHtml(item.text)}”</div>`;
+    } else if (item.type === 'todo') {
+      html += `
+        <div class="plan-item-row ${item.checked ? 'completed' : ''}" onclick="handleTogglePlanItem(${item.lineIndex})">
+          <label class="plan-checkbox-wrapper" onclick="event.stopPropagation(); handleTogglePlanItem(${item.lineIndex});">
+            <input type="checkbox" ${item.checked ? 'checked' : ''}>
+            <span class="plan-checkbox-custom"></span>
+          </label>
+          <span class="plan-item-text">${escapeHtml(item.text)}</span>
+        </div>
+      `;
+    }
+  });
+
+  if (inSection) html += `</div>`;
+  planChecklistContainer.innerHTML = html;
 }
 
 // 整日身心症状实时自动保存防抖处理
@@ -1673,18 +2031,6 @@ function handleWeightInput() {
   weightInputTimer = setTimeout(() => {
     handleSaveWeightOnly(false);
   }, 350);
-}
-
-// 2. 第一段：今日计划 (晨起立志) 渲染
-function renderDailyPlanSection() {
-  if (!inputDailyPlan) return;
-  inputDailyPlan.value = state.plans[state.currentDate] || '';
-  autoResizeTextarea(inputDailyPlan);
-  const tag = document.getElementById('planAutoSaveTag');
-  if (tag) {
-    tag.className = 'auto-save-tag';
-    tag.textContent = '🟢 实时已存';
-  }
 }
 
 // 3. 第二段：实际执行 (暮夜对账) 动态流渲染

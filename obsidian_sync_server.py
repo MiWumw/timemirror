@@ -33,6 +33,69 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ICON_PATH = os.path.join(BASE_DIR, "icon-192.png")
 TIMEMIRROR_WEB_URL = "https://miwumw.github.io/timemirror/"
 
+# 双核协同数据总线配置
+PRIMARY_STATE_FILE = os.path.join(VAULT_ROOT, DIARY_SUBDIR, "timemirror_state.json")
+GDRIVE_MIRROR_DIR = r"G:\我的云端硬盘\04_知行生活\身心纪事"
+GDRIVE_STATE_FILE = os.path.join(GDRIVE_MIRROR_DIR, "timemirror_state.json")
+
+def load_timemirror_state():
+    """读取 timemirror_state.json，优先本地主库，回退 G 盘镜像"""
+    for path in [PRIMARY_STATE_FILE, GDRIVE_STATE_FILE]:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:
+                pass
+    return {
+        "updated_at": datetime.now().isoformat(),
+        "plans": {},
+        "records": {},
+        "reflections": {},
+        "weights": {},
+        "habits": {},
+        "body_state": {}
+    }
+
+def save_timemirror_state(state_dict):
+    """保存 timemirror_state.json，本地与 G 盘双端同步镜像写入"""
+    state_dict["updated_at"] = datetime.now().isoformat()
+    # 1. 必写本地 Obsidian 主路径
+    try:
+        os.makedirs(os.path.dirname(PRIMARY_STATE_FILE), exist_ok=True)
+        with open(PRIMARY_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state_dict, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        pass
+
+    # 2. 若 G 盘镜像目录存在，同步写入
+    if os.path.exists(os.path.dirname(GDRIVE_STATE_FILE)):
+        try:
+            with open(GDRIVE_STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(state_dict, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            pass
+
+def extract_plan_from_obsidian(date_str):
+    """从 Obsidian 当天知行日志中提取晨起立志的 Markdown 内容"""
+    diary_dir = os.path.join(VAULT_ROOT, DIARY_SUBDIR)
+    target_file = os.path.join(diary_dir, f"{date_str}_每日知行日志.md")
+    if not os.path.exists(target_file):
+        return ""
+    try:
+        with open(target_file, "r", encoding="utf-8") as f:
+            content = f.read()
+        pattern_plan = r"###\s*🎯\s*晨起立志[^\n]*\n([\s\S]*?)(?=\n###\s*⚡\s*暮夜对账|\n###\s*🪞|\n#|\n---|\Z)"
+        match = re.search(pattern_plan, content)
+        if match:
+            text = match.group(1).strip()
+            # 移除骨架引用提示语
+            text = re.sub(r"^>\s*顺应今日身心气能[^\n]*\n?", "", text).strip()
+            return text
+    except Exception as e:
+        pass
+    return ""
+
 httpd_server = None
 
 def get_lan_ip():
@@ -138,30 +201,46 @@ def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, re
 
     # 3. 更新或写入【今日计划（### 🎯 晨起立志）】
     if plan_text is not None and plan_text.strip():
-        plan_lines = [l.strip() for l in plan_text.strip().split("\n") if l.strip()]
-        formatted_plans = []
-        for i, l in enumerate(plan_lines, 1):
-            clean_l = re.sub(r"^(?:-\s*\[[ x]\]\s*)?(?:\d+[\.\、]\s*)?", "", l).strip()
-            formatted_plans.append(f"- [ ] {i}. {clean_l}")
-        plan_block = "\n".join(formatted_plans)
+        raw_text = plan_text.strip()
+        # 智能保持格式：如果已包含 markdown 任务复选框 (- [ ] / - [x]) 或小节标题 (###)，则原汁原味保真保留
+        if "- [" in raw_text or "###" in raw_text or raw_text.startswith("- "):
+            plan_block = raw_text
+        else:
+            plan_lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
+            formatted_plans = []
+            for i, l in enumerate(plan_lines, 1):
+                clean_l = re.sub(r"^(?:-\s*\[[ x]\]\s*)?(?:\d+[\.\、]\s*)?", "", l).strip()
+                formatted_plans.append(f"- [ ] {i}. {clean_l}")
+            plan_block = "\n".join(formatted_plans)
 
-        pattern_plan = r"(###\s*🎯\s*晨起立志[^\n]*\n)([\s\S]*?)(?=\n###|\n---|\Z)"
+        pattern_plan = r"(###\s*🎯\s*晨起立志[^\n]*\n)([\s\S]*?)(?=\n###\s*⚡\s*暮夜对账|\n###\s*🪞|\n#|\n---|\Z)"
         match_plan = re.search(pattern_plan, content)
         if match_plan:
             orig_body = match_plan.group(2)
             quote = ""
             if "> 顺应今日身心气能" in orig_body:
                 quote = "> 顺应今日身心气能，参考 [[学习项目四阶追踪表]]，每日核心要务不超过 3 件：\n"
-            new_section = match_plan.group(1) + quote + plan_block + "\n\n"
+            
+            # 如果传入的 plan_block 已经自带了 ### 🎯 晨起立志 总大标题，则不重复 group(1)
+            if re.match(r"^###\s*🎯\s*晨起立志", plan_block):
+                new_section = plan_block + "\n\n"
+            else:
+                new_section = match_plan.group(1) + quote + plan_block + "\n\n"
             content = content[:match_plan.start()] + new_section + content[match_plan.end():]
         else:
             insert_marker = "# 🎯 第一部分"
             if insert_marker in content:
                 pos = content.find(insert_marker)
                 nl = content.find("\n", pos)
-                content = content[:nl+1] + f"\n### 🎯 晨起立志（打算做什么？）\n{plan_block}\n\n" + content[nl+1:]
+                if re.match(r"^###\s*🎯\s*晨起立志", plan_block):
+                    content = content[:nl+1] + f"\n{plan_block}\n\n" + content[nl+1:]
+                else:
+                    content = content[:nl+1] + f"\n### 🎯 晨起立志（打算做什么？）\n{plan_block}\n\n" + content[nl+1:]
             else:
-                content += f"\n\n### 🎯 晨起立志（打算做什么？）\n{plan_block}\n"
+                if re.match(r"^###\s*🎯\s*晨起立志", plan_block):
+                    content += f"\n\n{plan_block}\n"
+                else:
+                    content += f"\n\n### 🎯 晨起立志（打算做什么？）\n{plan_block}\n"
 
     # 4. 更新或写入【暮夜对账（### ⚡ 暮夜对账）】
     if formatted_text is not None and formatted_text.strip():
@@ -325,6 +404,25 @@ def write_to_obsidian(date_str, formatted_text, records=None, plan_text=None, re
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(content)
 
+    # 7. 同步落地更新 timemirror_state.json 数据总线
+    try:
+        cur_state = load_timemirror_state()
+        if plan_text is not None and plan_text.strip():
+            cur_state.setdefault("plans", {})[date_str] = plan_text.strip()
+        if reflection_text is not None and reflection_text.strip():
+            cur_state.setdefault("reflections", {})[date_str] = reflection_text.strip()
+        if records is not None and len(records) > 0:
+            cur_state.setdefault("records", {})[date_str] = records
+        if weight is not None and str(weight).strip():
+            cur_state.setdefault("weights", {})[date_str] = weight
+        if habits is not None:
+            cur_state.setdefault("habits", {})[date_str] = habits
+        if body_state is not None:
+            cur_state.setdefault("body_state", {})[date_str] = body_state
+        save_timemirror_state(cur_state)
+    except Exception as e:
+        pass
+
     return True, f"已成功更新 {date_str}_每日知行日志.md 的计划、执行、反思、微步打卡与身心数据！"
 
 class SyncHandler(BaseHTTPRequestHandler):
@@ -346,12 +444,14 @@ class SyncHandler(BaseHTTPRequestHandler):
             resp = {
                 "status": "online",
                 "app": "TimeMirror-Obsidian-Sync-Bridge",
-                "version": "1.3.0",
+                "version": "1.5.0",
                 "vault": VAULT_ROOT,
                 "lan_ip": lan_ip,
                 "port": PORT,
                 "today": today_str,
-                "targetDir": os.path.join(VAULT_ROOT, DIARY_SUBDIR)
+                "targetDir": os.path.join(VAULT_ROOT, DIARY_SUBDIR),
+                "stateFile": PRIMARY_STATE_FILE,
+                "gdriveMirror": os.path.exists(os.path.dirname(GDRIVE_STATE_FILE))
             }
             body = json.dumps(resp, ensure_ascii=False).encode("utf-8")
             self.send_response(200)
@@ -360,6 +460,47 @@ class SyncHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+            return
+
+        if self.path.startswith("/api/plan") or self.path.startswith("/plan"):
+            import urllib.parse
+            parsed = urllib.parse.urlparse(self.path)
+            qs = urllib.parse.parse_qs(parsed.query)
+            date_str = qs.get("date", [datetime.now().strftime("%Y-%m-%d")])[0]
+            
+            cur_state = load_timemirror_state()
+            plan_text = cur_state.get("plans", {}).get(date_str, "")
+            source = "json"
+            if not plan_text:
+                plan_text = extract_plan_from_obsidian(date_str)
+                source = "obsidian" if plan_text else "none"
+
+            resp = {
+                "success": True,
+                "date": date_str,
+                "planText": plan_text,
+                "source": source
+            }
+            body = json.dumps(resp, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self._send_cors()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if self.path.startswith("/api/state") or self.path.startswith("/state"):
+            cur_state = load_timemirror_state()
+            body = json.dumps(cur_state, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self._send_cors()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         else:
             # 静态文件服务 (让手机可直接访问局域网纯内网版时镜，彻底绕过浏览器的 HTTPS Mixed Content 限制)
             clean_path = self.path.split("?")[0].lstrip("/")
@@ -394,6 +535,37 @@ class SyncHandler(BaseHTTPRequestHandler):
                 self.end_headers()
 
     def do_POST(self):
+        if self.path.startswith("/api/plan") or self.path.startswith("/plan"):
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length).decode("utf-8")
+            try:
+                data = json.loads(post_data)
+                date_str = data.get("date") or datetime.now().strftime("%Y-%m-%d")
+                plan_text = data.get("planText", "")
+                
+                # 1. 原子更新 Obsidian 当日日记晨起立志
+                success, msg = write_to_obsidian(date_str, formatted_text=None, plan_text=plan_text)
+                
+                # 2. 更新 timemirror_state.json
+                cur_state = load_timemirror_state()
+                cur_state.setdefault("plans", {})[date_str] = plan_text
+                save_timemirror_state(cur_state)
+
+                resp = { "success": success, "message": msg, "date": date_str, "planText": plan_text }
+                code = 200
+            except Exception as e:
+                resp = { "success": False, "message": f"处理错误: {str(e)}" }
+                code = 500
+
+            body = json.dumps(resp, ensure_ascii=False).encode("utf-8")
+            self.send_response(code)
+            self._send_cors()
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
         if self.path.startswith("/sync"):
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length).decode("utf-8")

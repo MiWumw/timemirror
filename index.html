@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.4.2">
+  <link rel="stylesheet" href="style.css?v=1.5.0">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -250,16 +250,22 @@
           <div class="zhixing-title">
             <span>🎯 一、今日计划 · 晨起立志</span>
             <span id="planAutoSaveTag" class="auto-save-tag">🟢 实时已存</span>
+            <span id="planStatsTag" class="plan-stats-badge" style="display: none;">0/0 完成</span>
           </div>
           <div class="zhixing-actions">
+            <button type="button" id="btnTogglePlanView" class="zhixing-tool-btn" title="在清单打勾模式与源码编辑模式之间切换">✏️ 源码编辑</button>
+            <button type="button" id="btnPullPlanBridge" class="zhixing-tool-btn" title="从电脑或云端拉取最新计划">☁️ 拉取计划</button>
             <button type="button" id="btnInsertPlanTemplate" class="zhixing-tool-btn">⚡ 1.2.3.模板</button>
             <button type="button" class="zhixing-tool-btn btn-open-history-snapshots" title="查看最近编辑过的历史版本快照，支持一键找回">📜 历史版本/找回</button>
           </div>
         </div>
         <div class="zhixing-desc">
-          顺应今日身心气能，每日核心要务不超过 3 件（打字即时自动保存，直通 Obsidian 晨起立志）
+          顺应今日身心气能，每日核心要务不超过 3 件（打勾即时自动持久化，直通 Obsidian 晨起立志）
         </div>
-        <textarea id="inputDailyPlan" class="fullscreen-textarea" placeholder="1. 核心要务一&#10;2. 核心要务二&#10;3. 核心要务三"></textarea>
+        <!-- 动态交互式 Checkbox 清单容器 -->
+        <div id="planChecklistContainer" class="plan-checklist-container"></div>
+        <!-- 源码编辑多行文本框 (默认按模式显隐) -->
+        <textarea id="inputDailyPlan" class="fullscreen-textarea" style="display: none;" placeholder="### 🎯 晨起立志（核心三要务）&#10;- [ ] 1. 核心要务一&#10;- [ ] 2. 核心要务二&#10;- [ ] 3. 核心要务三"></textarea>
       </div>
 
       <!-- 第二段：实际执行 · 暮夜对账 -->
@@ -995,6 +1001,6 @@
 
   </div>
 
-  <script src="app.js?v=1.4.2"></script>
+  <script src="app.js?v=1.5.0"></script>
 </body>
 </html>
