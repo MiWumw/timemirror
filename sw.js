@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v162-smart-now-time';
+const CACHE_NAME = 'timemirror-v163-dual-channel-pull';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.6.2',
-  './app.js?v=1.6.2',
+  './style.css?v=1.6.3',
+  './app.js?v=1.6.3',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

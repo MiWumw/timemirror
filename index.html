@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.6.2">
+  <link rel="stylesheet" href="style.css?v=1.6.3">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.2</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.3</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -690,12 +690,27 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.6.2 Current -->
+    <!-- v1.6.3 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
+          <span>v1.6.3</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 计划拉取智能双通道自愈版</span>
+        </div>
+        <span class="changelog-date">2026-11-22</span>
+      </div>
+      <ul class="changelog-list">
+        <li><b>🛡️ 计划拉取“云桥直连 + 本地自愈”智能双通道</b>：彻底攻克云桥返回空计划导致的拉取断层！点击【☁️ 云端拉取】时，若云端因 GAS 旧版未返回计划，时镜自动在毫秒级内向电脑端本地镜像网关发起自愈同步，双通道互补保障 100% 成功提取日程大表与打勾待办。</li>
+        <li><b>⚡ 局域网探测 3 秒超时熔断</b>：局域网自愈探测增加严格 3 秒中断保护，外出非局域网环境下丝滑流畅、零卡顿。</li>
+      </ul>
+    </div>
+
+    <!-- v1.6.2 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
           <span>v1.6.2</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 手机当下时间智能对齐与云端极速版</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
         </div>
         <span class="changelog-date">2026-11-22</span>
       </div>
@@ -1052,6 +1067,6 @@
 
   </div>
 
-  <script src="app.js?v=1.6.2"></script>
+  <script src="app.js?v=1.6.3"></script>
 </body>
 </html>

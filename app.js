@@ -607,10 +607,11 @@ function initEventListeners() {
     });
   }
 
-  // 计划云端拉取按钮 (优先直通谷歌云盘 Google Apps Script，免除局域网限制)
+  // 计划云端拉取按钮 (智能双保险：优先直通谷歌云桥，若云桥未更新则自动无缝触发本地镜像自愈拉取)
   if (btnPullPlanBridge) {
     btnPullPlanBridge.addEventListener('click', async () => {
       const cloudUrl = CloudSyncAdapter.getUrl();
+      let gotPlan = false;
       if (cloudUrl) {
         showToast('☁️ 正在从谷歌云盘拉取《今日计划.md》与漫游状态...');
         try {
@@ -625,19 +626,32 @@ function initEventListeners() {
             updateUI();
             const hasPlan = state.plans[state.currentDate] && state.plans[state.currentDate].trim();
             if (hasPlan) {
+              gotPlan = true;
               showToast('🟢 成功从云端同步《今日计划.md》，日程与待办已就绪！');
-            } else {
-              showToast('🟢 成功从谷歌云盘拉取数据，今日暂无预设计划');
             }
-          } else {
-            showToast('⚠️ 未能从谷歌云盘拉取到新数据，请检查网络或云桥设置');
           }
         } catch (e) {
-          showToast('❌ 云端拉取失败: ' + e.message);
+          console.warn('云桥请求异常:', e);
         }
-      } else {
-        // 未配置云桥时尝试电脑局域网网关
-        pullPlanFromBridge(false);
+      }
+
+      // 🛡️ 智能自愈双保险：若云桥因 GAS 旧脚本未返回计划，毫秒级自动从电脑网关拉取同步（电脑已实时镜像 G 盘文件）
+      if (!gotPlan) {
+        try {
+          const lanSuccess = await pullPlanFromBridge(true);
+          if (lanSuccess && state.plans[state.currentDate] && state.plans[state.currentDate].trim()) {
+            gotPlan = true;
+            renderDailyPlanSection();
+            updateUI();
+            showToast('🟢 成功同步最新《今日计划.md》，日程与待办已就绪！');
+          }
+        } catch (lanErr) {
+          console.warn('局域网网关自愈探测跳过:', lanErr);
+        }
+      }
+
+      if (!gotPlan) {
+        showToast('ℹ️ 今日暂无预设计划 (请确认云端或知识库已创建《今日计划.md》)');
       }
     });
   }
@@ -1952,10 +1966,14 @@ async function pullPlanFromBridge(silent = false) {
   serverUrl = serverUrl.replace(/\/+$/, '');
 
   try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
     const resp = await fetch(`${serverUrl}/api/plan?date=${state.currentDate}`, {
       method: 'GET',
-      headers: { 'Accept': 'application/json' }
+      headers: { 'Accept': 'application/json' },
+      signal: ctrl.signal
     });
+    clearTimeout(timer);
     if (!resp.ok) throw new Error('网络返回异常');
     const data = await resp.json();
     if (data && data.success && data.planText) {
