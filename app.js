@@ -381,6 +381,7 @@ const inputDailyPlan = document.getElementById('inputDailyPlan');
 const btnInsertPlanTemplate = document.getElementById('btnInsertPlanTemplate');
 const planChecklistContainer = document.getElementById('planChecklistContainer');
 const btnTogglePlanView = document.getElementById('btnTogglePlanView');
+const btnPastePlanFromClipboard = document.getElementById('btnPastePlanFromClipboard');
 const btnPullPlanBridge = document.getElementById('btnPullPlanBridge');
 const planStatsTag = document.getElementById('planStatsTag');
 
@@ -561,10 +562,66 @@ function initEventListeners() {
     });
   }
 
-  // 计划拉取按钮 (从电脑局域网/云端网关获取)
+  // 一键从剪贴板载入 Gemini 安排的计划
+  if (btnPastePlanFromClipboard) {
+    btnPastePlanFromClipboard.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text || !text.trim()) {
+          showToast('⚠️ 剪贴板为空，请先在 Gemini 聊天中复制安排');
+          return;
+        }
+        state.plans[state.currentDate] = text.trim();
+        if (inputDailyPlan) {
+          inputDailyPlan.value = text.trim();
+          autoResizeTextarea(inputDailyPlan);
+        }
+        savePlans();
+        saveZhixingSnapshot('plan', text.trim());
+        state.planViewMode = 'checklist';
+        localStorage.setItem('tm_plan_view_mode', 'checklist');
+        renderDailyPlanSection();
+        showToast('🎉 成功识别剪贴板！时间表与待办已分离载入');
+        syncPlanToBridge(state.currentDate, text.trim());
+      } catch (err) {
+        state.planViewMode = 'raw';
+        localStorage.setItem('tm_plan_view_mode', 'raw');
+        renderDailyPlanSection();
+        if (inputDailyPlan) {
+          inputDailyPlan.focus();
+        }
+        showToast('💡 剪贴板读取受限，已切至源码框，请长按粘贴');
+      }
+    });
+  }
+
+  // 计划云端拉取按钮 (优先直通谷歌云盘 Google Apps Script，免除局域网限制)
   if (btnPullPlanBridge) {
-    btnPullPlanBridge.addEventListener('click', () => {
-      pullPlanFromBridge(false);
+    btnPullPlanBridge.addEventListener('click', async () => {
+      const cloudUrl = CloudSyncAdapter.getUrl();
+      if (cloudUrl) {
+        showToast('☁️ 正在从谷歌云盘拉取最新计划与漫游状态...');
+        try {
+          const st = await CloudSyncAdapter.pullFromCloud();
+          if (st) {
+            renderDailyPlanSection();
+            renderDailyReflectionSection();
+            renderDailyWeightSection();
+            renderHabitsSection();
+            renderWinnerTrials();
+            renderBodyStateSection();
+            updateUI();
+            showToast('🟢 成功从谷歌云盘拉取今日计划与漫游数据！');
+          } else {
+            showToast('⚠️ 未能从谷歌云盘拉取到新数据，请检查网络');
+          }
+        } catch (e) {
+          showToast('❌ 云端拉取失败: ' + e.message);
+        }
+      } else {
+        // 未配置云桥时尝试电脑局域网网关
+        pullPlanFromBridge(false);
+      }
     });
   }
 
@@ -1633,26 +1690,34 @@ function handlePlanInput() {
 }
 
 // ========================================================
-// 🎯 晨起立志 · Markdown Checkbox 动态解析与交互引擎 (v1.5.0)
+// 🎯 晨起立志 · 时间节奏与 Markdown 待办解耦渲染引擎 (v1.6.0)
 // ========================================================
 
-// 从 Markdown 文本中提取结构化项
+// 从 Markdown 文本中提取结构化项 (解耦时间节奏与可打勾待办)
 function parsePlanMarkdown(markdown) {
   if (!markdown) return [];
   const lines = markdown.split('\n');
   const items = [];
-  
+  let currentHeadingText = '';
+
   lines.forEach((line, idx) => {
     const trimmed = line.trim();
     if (!trimmed) {
       items.push({ type: 'empty', lineIndex: idx });
       return;
     }
-    
-    // 匹配 Markdown 标题：### 🎯 晨起立志（核心三要务） 或 ## 标题
+
+    // 分隔线：---
+    if (/^---+$/.test(trimmed)) {
+      items.push({ type: 'divider', lineIndex: idx });
+      return;
+    }
+
+    // 标题行：### 标题 或 ## 标题
     if (trimmed.startsWith('#')) {
       const match = trimmed.match(/^(#+)\s*(.*)$/);
       if (match) {
+        currentHeadingText = match[2];
         items.push({
           type: 'heading',
           level: match[1].length,
@@ -1663,8 +1728,8 @@ function parsePlanMarkdown(markdown) {
         return;
       }
     }
-    
-    // 匹配引用说明：> 顺应今日身心气能...
+
+    // 引用说明：> 说明
     if (trimmed.startsWith('>')) {
       items.push({
         type: 'quote',
@@ -1674,22 +1739,49 @@ function parsePlanMarkdown(markdown) {
       });
       return;
     }
-    
-    // 匹配复选框待办：- [ ] 或 - [x] 或 - [X]
-    const todoMatch = trimmed.match(/^-\s*\[([ xX])\]\s*(.*)$/);
-    if (todoMatch) {
-      const isChecked = todoMatch[1].toLowerCase() === 'x';
+
+    // 明确复选框：- [ ] 或 - [x] 或 - [X] (核心打勾待办)
+    const checkboxMatch = trimmed.match(/^-\s*\[([ xX])\]\s*(.*)$/);
+    if (checkboxMatch) {
+      const isChecked = checkboxMatch[1].toLowerCase() === 'x';
       items.push({
         type: 'todo',
         checked: isChecked,
-        text: todoMatch[2],
+        text: checkboxMatch[2],
         raw: line,
         lineIndex: idx
       });
       return;
     }
-    
-    // 匹配无复选框的数字序号：1. 八段锦...
+
+    // 时间节奏行识别：
+    // 形式 A: - **08:30 - 09:30**｜【唤醒固本】八段锦（30m）+ 调息（5m）+ 早餐
+    // 形式 B: - **21:30 - 入眠** ｜【收敛归元】...
+    const timeRhythmMatch = trimmed.match(/^(?:[-*]\s*)?\*\*([^\*]+)\*\*\s*[\|｜:\s]\s*(.*)$/);
+    if (timeRhythmMatch && (/\d{1,2}:\d{2}/.test(timeRhythmMatch[1]) || /时间|入眠|清晨|上午|下午|晚上|夜间/.test(timeRhythmMatch[1]))) {
+      items.push({
+        type: 'schedule',
+        time: timeRhythmMatch[1].trim(),
+        desc: timeRhythmMatch[2].trim(),
+        raw: line,
+        lineIndex: idx
+      });
+      return;
+    }
+
+    // 若当前处于“时间节奏 / 日程”小节下，无复选框的列表项一律作为纯日程流，绝不误加 Checkbox！
+    if (/时间|节奏|大表|时刻|日程/.test(currentHeadingText)) {
+      const cleanText = trimmed.replace(/^[-*]\s*/, '');
+      items.push({
+        type: 'schedule_text',
+        text: cleanText,
+        raw: line,
+        lineIndex: idx
+      });
+      return;
+    }
+
+    // 序号待办：1. 八段锦... (当不在时间小节下时，作为待办)
     const numMatch = trimmed.match(/^(\d+[\.\、])\s*(.*)$/);
     if (numMatch) {
       items.push({
@@ -1703,7 +1795,7 @@ function parsePlanMarkdown(markdown) {
       return;
     }
 
-    // 匹配普通列表项：- 事项
+    // 普通列表项 (在核心待办/进阶选做小节下)：- 事项
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       items.push({
         type: 'todo',
@@ -1714,30 +1806,29 @@ function parsePlanMarkdown(markdown) {
       });
       return;
     }
-    
-    // 其他普通文本行，也作为待办渲染
+
+    // 其他自由文本行
     items.push({
-      type: 'todo',
-      checked: false,
+      type: 'plain_text',
       text: trimmed,
       raw: line,
       lineIndex: idx
     });
   });
-  
+
   return items;
 }
 
-// 切换清单中某项完成状态
+// 切换清单中某项完成状态 (严格仅对真实待办项生效)
 function handleTogglePlanItem(lineIndex) {
   const currentPlan = state.plans[state.currentDate] || '';
   const lines = currentPlan.split('\n');
   if (lineIndex < 0 || lineIndex >= lines.length) return;
-  
+
   const line = lines[lineIndex];
   const trimmed = line.trim();
   let newLine = line;
-  
+
   if (/^-\s*\[\s*\]/.test(trimmed)) {
     newLine = line.replace(/-\s*\[\s*\]/, '- [x]');
   } else if (/^-\s*\[[xX]\]/.test(trimmed)) {
@@ -1749,30 +1840,30 @@ function handleTogglePlanItem(lineIndex) {
   } else {
     newLine = `- [x] ${trimmed}`;
   }
-  
+
   lines[lineIndex] = newLine;
   const updatedPlan = lines.join('\n');
-  
+
   // 更新状态
   state.plans[state.currentDate] = updatedPlan;
   if (inputDailyPlan) {
     inputDailyPlan.value = updatedPlan;
     autoResizeTextarea(inputDailyPlan);
   }
-  
+
   // 触觉轻微振动
   if (navigator.vibrate) {
     try { navigator.vibrate(15); } catch (e) {}
   }
-  
+
   // 保存本地与快照
   savePlans();
   saveZhixingSnapshot('plan', updatedPlan);
-  
+
   // 刷新界面渲染
   renderDailyPlanSection();
-  
-  // 异步防抖向电脑网关保存
+
+  // 异步防抖向电脑网关保存 (若处于局域网)
   clearTimeout(planBridgeSyncTimer);
   planBridgeSyncTimer = setTimeout(() => {
     syncPlanToBridge(state.currentDate, updatedPlan);
@@ -1791,7 +1882,7 @@ async function syncPlanToBridge(dateStr, planText) {
     }
   }
   serverUrl = serverUrl.replace(/\/+$/, '');
-  
+
   try {
     const resp = await fetch(`${serverUrl}/api/plan`, {
       method: 'POST',
@@ -1810,7 +1901,7 @@ async function syncPlanToBridge(dateStr, planText) {
   }
 }
 
-// 从电脑或云端拉取今日计划
+// 从电脑局域网网关拉取今日计划
 async function pullPlanFromBridge(silent = false) {
   const serverInput = document.getElementById('obsidianServerUrl');
   let serverUrl = (serverInput ? serverInput.value.trim() : '') || localStorage.getItem('tm_obsidian_server');
@@ -1822,7 +1913,7 @@ async function pullPlanFromBridge(silent = false) {
     }
   }
   serverUrl = serverUrl.replace(/\/+$/, '');
-  
+
   try {
     const resp = await fetch(`${serverUrl}/api/plan?date=${state.currentDate}`, {
       method: 'GET',
@@ -1840,7 +1931,7 @@ async function pullPlanFromBridge(silent = false) {
       saveZhixingSnapshot('plan', data.planText);
       renderDailyPlanSection();
       if (!silent) {
-        showToast('🟢 已成功拉取电脑/云端最新计划！');
+        showToast('🟢 已成功拉取电脑端最新计划！');
       }
       return true;
     } else if (!silent) {
@@ -1848,7 +1939,7 @@ async function pullPlanFromBridge(silent = false) {
     }
   } catch (e) {
     if (!silent) {
-      showToast('⚠️ 未能连接到电脑同步服务，请确认在局域网内且服务已开启');
+      showToast('⚠️ 未能连接到电脑同步服务，若使用云端漫游请点击【☁️ 云端拉取】');
     }
   }
   return false;
@@ -1869,7 +1960,7 @@ function renderDailyPlanSection() {
 
   const mode = state.planViewMode || 'checklist';
   if (btnTogglePlanView) {
-    btnTogglePlanView.textContent = (mode === 'checklist') ? '✏️ 源码编辑' : '📋 清单模式';
+    btnTogglePlanView.textContent = (mode === 'checklist') ? '✏️ 源码' : '📋 清单';
   }
 
   if (mode === 'raw') {
@@ -1909,7 +2000,7 @@ function renderDailyPlanSection() {
       <div class="plan-empty-hint">
         🌱 今日暂无计划事项<br>
         <span style="font-size: 0.76rem; color: var(--text-light); margin-top: 4px; display: inline-block;">
-          点击右上角【⚡ 1.2.3.模板】或【☁️ 拉取计划】开启今日规划
+          复制 Gemini 计划后点击【📋 粘贴载入】或点击【☁️ 云端拉取】
         </span>
       </div>
     `;
@@ -1917,21 +2008,54 @@ function renderDailyPlanSection() {
   }
 
   let html = '';
-  let inSection = false;
+  let inBlock = false;
+  let currentBlockType = '';
 
   items.forEach(item => {
     if (item.type === 'heading') {
-      if (inSection) html += `</div>`;
+      if (inBlock) { html += `</div>`; inBlock = false; }
       html += `
-        <div class="plan-section-block">
-          <div class="plan-section-header">
-            <span>${escapeHtml(item.text)}</span>
-          </div>
+        <div class="plan-section-header">
+          <span>${escapeHtml(item.text)}</span>
+        </div>
       `;
-      inSection = true;
+    } else if (item.type === 'divider') {
+      if (inBlock) { html += `</div>`; inBlock = false; }
+      html += `<hr class="plan-divider">`;
     } else if (item.type === 'quote') {
       html += `<div class="plan-item-quote">“${escapeHtml(item.text)}”</div>`;
+    } else if (item.type === 'schedule') {
+      if (!inBlock || currentBlockType !== 'schedule') {
+        if (inBlock) html += `</div>`;
+        html += `<div class="plan-schedule-block">`;
+        inBlock = true;
+        currentBlockType = 'schedule';
+      }
+      html += `
+        <div class="plan-schedule-row">
+          <span class="plan-schedule-time">${escapeHtml(item.time)}</span>
+          <span class="plan-schedule-content">${escapeHtml(item.desc)}</span>
+        </div>
+      `;
+    } else if (item.type === 'schedule_text') {
+      if (!inBlock || currentBlockType !== 'schedule') {
+        if (inBlock) html += `</div>`;
+        html += `<div class="plan-schedule-block">`;
+        inBlock = true;
+        currentBlockType = 'schedule';
+      }
+      html += `
+        <div class="plan-schedule-row">
+          <span class="plan-schedule-content">${escapeHtml(item.text)}</span>
+        </div>
+      `;
     } else if (item.type === 'todo') {
+      if (!inBlock || currentBlockType !== 'todo') {
+        if (inBlock) html += `</div>`;
+        html += `<div class="plan-section-block">`;
+        inBlock = true;
+        currentBlockType = 'todo';
+      }
       html += `
         <div class="plan-item-row ${item.checked ? 'completed' : ''}" onclick="handleTogglePlanItem(${item.lineIndex})">
           <label class="plan-checkbox-wrapper" onclick="event.stopPropagation(); handleTogglePlanItem(${item.lineIndex});">
@@ -1941,10 +2065,12 @@ function renderDailyPlanSection() {
           <span class="plan-item-text">${escapeHtml(item.text)}</span>
         </div>
       `;
+    } else if (item.type === 'plain_text') {
+      html += `<div class="plan-item-quote">${escapeHtml(item.text)}</div>`;
     }
   });
 
-  if (inSection) html += `</div>`;
+  if (inBlock) html += `</div>`;
   planChecklistContainer.innerHTML = html;
 }
 

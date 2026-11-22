@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.5.0">
+  <link rel="stylesheet" href="style.css?v=1.6.0">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.5.0</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.0</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -253,10 +253,11 @@
             <span id="planStatsTag" class="plan-stats-badge" style="display: none;">0/0 完成</span>
           </div>
           <div class="zhixing-actions">
-            <button type="button" id="btnTogglePlanView" class="zhixing-tool-btn" title="在清单打勾模式与源码编辑模式之间切换">✏️ 源码编辑</button>
-            <button type="button" id="btnPullPlanBridge" class="zhixing-tool-btn" title="从电脑或云端拉取最新计划">☁️ 拉取计划</button>
-            <button type="button" id="btnInsertPlanTemplate" class="zhixing-tool-btn">⚡ 1.2.3.模板</button>
-            <button type="button" class="zhixing-tool-btn btn-open-history-snapshots" title="查看最近编辑过的历史版本快照，支持一键找回">📜 历史版本/找回</button>
+            <button type="button" id="btnTogglePlanView" class="zhixing-tool-btn" title="在清单打勾模式与源码编辑模式之间切换">✏️ 源码</button>
+            <button type="button" id="btnPastePlanFromClipboard" class="zhixing-tool-btn" style="color: var(--primary); font-weight: 700;" title="一键粘贴 Gemini 规划的 Markdown 文本并秒级识别">📋 粘贴载入</button>
+            <button type="button" id="btnPullPlanBridge" class="zhixing-tool-btn" title="从谷歌云盘云桥拉取最新计划与漫游状态">☁️ 云端拉取</button>
+            <button type="button" id="btnInsertPlanTemplate" class="zhixing-tool-btn">⚡ 模板</button>
+            <button type="button" class="zhixing-tool-btn btn-open-history-snapshots" title="查看最近编辑过的历史版本快照，支持一键找回">📜 找回</button>
           </div>
         </div>
         <div class="zhixing-desc">
@@ -688,12 +689,29 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.5.0 Current -->
+    <!-- v1.6.0 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
+          <span>v1.6.0</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 双核云端直通与时间节奏解耦版</span>
+        </div>
+        <span class="changelog-date">2026-11-22</span>
+      </div>
+      <ul class="changelog-list">
+        <li><b>⏱️ 时间节奏与可打勾待办彻底解耦</b>：智能区分「⏱️ 今日时间节奏」（作为纯净时间表流展示，绝不误打勾）与「🎯 核心待办 / 进阶选做」（大触控 Checkbox 打勾完成），完美契合 Gemini 真实规划格式。</li>
+        <li><b>📋 增设【一键粘贴载入】</b>：支持从 Gemini 聊天框一键复制后，在时镜轻触即可秒级提取时间表与待办，免除来回切屏排版烦恼。</li>
+        <li><b>☁️ 计划拉取原生直通谷歌云盘云桥</b>：拉取按钮全面绑定 Google Apps Script 谷歌云桥，不再强制要求本地局域网电脑在线，全网漫游随时拉取最新计划。</li>
+        <li><b>🛡️ 双核数据总线与原地持久化</b>：打勾状态即时写回本地 LocalStorage 与数据总线，进度徽章（如 0/4 完成）动态联动。</li>
+      </ul>
+    </div>
+
+    <!-- v1.5.0 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
           <span>v1.5.0</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 跨端云漫游与全屏自适应版</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
         </div>
         <span class="changelog-date">2026-11-17</span>
       </div>
@@ -1001,6 +1019,6 @@
 
   </div>
 
-  <script src="app.js?v=1.5.0"></script>
+  <script src="app.js?v=1.6.0"></script>
 </body>
 </html>

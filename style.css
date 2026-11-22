@@ -1647,6 +1647,56 @@ body {
   margin-top: 4px;
 }
 
+/* 时间节奏流列表项样式 (无复选框，纯净日程表流) */
+.plan-schedule-block {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(248, 250, 252, 0.7);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+}
+
+.plan-schedule-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 4px;
+  border-bottom: 1px dashed rgba(226, 232, 240, 0.8);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.plan-schedule-row:last-child {
+  border-bottom: none;
+}
+
+.plan-schedule-time {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--primary);
+  background: rgba(79, 70, 229, 0.08);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.plan-schedule-content {
+  color: var(--text-main);
+  flex: 1;
+  word-break: break-word;
+}
+
+.plan-divider {
+  border: none;
+  border-top: 1px dashed var(--border);
+  margin: 10px 0;
+}
+
 /* 暮夜对账实际执行渲染列表 */
 .exec-stream-container {
   background: #F8FAFC;

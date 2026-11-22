@@ -84,3 +84,16 @@
   - 更新 `STATUS.txt`。
 - **状态**：🟢 系统环境彻底减熵归零，STANDBY 待命。
 ---
+
+## [2026-11-22 15:15] 任务：v1.6.0 双核云端直通、时间节奏与可打勾待办解耦渲染版全量落地
+- **决策来源**：用户指导与双核协同升级
+- **核心落地**：
+  - `fs/timemirror/index.html`: 顶栏升级至 `v1.6.0`；在 `#changelogModal` 顶部插入 `v1.6.0 (2026-11-22)` 当前版本卡片；晨起立志卡片新增【📋 粘贴载入】按钮，并将拉取按钮重构为直通谷歌云盘；资源引入增加 `?v=1.6.0` 穿透；
+  - `fs/timemirror/app.js`: 重构 `parsePlanMarkdown`，智能区分「⏱️ 今日时间节奏」（作为纯净时间表流展示，绝不误打勾）与「🎯 核心待办 / 进阶选做」（大触控 Checkbox 打勾完成）；绑定 `btnPastePlanFromClipboard` 实现从 Gemini 聊天框一键秒级提取时间表与待办；重构 `btnPullPlanBridge` 优先直连 `CloudSyncAdapter.pullFromCloud()`；
+  - `fs/timemirror/style.css`: 注入 `.plan-schedule-block`、`.plan-schedule-row`、`.plan-schedule-time`、`.plan-divider` 样式；
+  - `fs/timemirror/sw.js`: 升级缓存键至 `timemirror-v160-cloud-sync-timeline`；
+  - `fs/timemirror/obsidian_sync_server.py`: 版本升级为 `1.6.0`；
+  - `fs/timemirror/CHANGELOG.md` & `CONTEXT_HUB.md`: 增补 `v1.6.0` 里程碑记录。
+- **本地验证结果**：`node -c app.js` 与 `python -m py_compile` 语法校验通过，Git push 推送远端成功。
+- **状态**：🟢 全部落地完成，严格遵循版本号与前端内置弹窗双锁红线。
+---

@@ -444,7 +444,7 @@ class SyncHandler(BaseHTTPRequestHandler):
             resp = {
                 "status": "online",
                 "app": "TimeMirror-Obsidian-Sync-Bridge",
-                "version": "1.5.0",
+                "version": "1.6.0",
                 "vault": VAULT_ROOT,
                 "lan_ip": lan_ip,
                 "port": PORT,

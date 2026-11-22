@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v150-markdown-checklist';
+const CACHE_NAME = 'timemirror-v160-cloud-sync-timeline';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.5.0',
-  './app.js?v=1.5.0',
+  './style.css?v=1.6.0',
+  './app.js?v=1.6.0',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

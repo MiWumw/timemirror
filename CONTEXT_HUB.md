@@ -2,8 +2,8 @@
 
 > **文档性质**：面向多智能体（AI Pair Programmer）与开发者跨会话接力的活态系统枢纽。  
 > **维护规则**：AI 需根据用户对话与功能演进**自发、主动增删修改**，无需等待用户催促，始终保持信息最新。  
-> **当前版本**：v1.5.0 · 双核协同数据总线与 Markdown 动态清单版  
-> **更新时间**：2026-11-22 14:18
+> **当前版本**：v1.6.0 · 双核云端直通、时间节奏与可打勾待办解耦渲染版  
+> **更新时间**：2026-11-22 15:15
 
 ---
 
@@ -15,32 +15,35 @@
 flowchart LR
     subgraph 云端大脑 ["☁️ 云端大脑 (Gemini / 数字管家)"]
         G["网页/手机端 Gemini\n晚间推演复盘 21:00~23:00"]
-        G -->|注入次日规划| GS[("timemirror_state.json\nplans[YYYY-MM-DD]")]
+        G -->|生成次日安排| GM["今日计划 Markdown\n(时间节奏流 + 核心待办 + 进阶选做)"]
     end
 
-    subgraph 移动端 ["📱 移动端 (手机 PWA)"]
+    subgraph 移动端 ["📱 移动端 (手机 PWA v1.6.0)"]
         A["时镜 Web App\nhttps://miwumw.github.io/timemirror/"]
-        A -->|日间交互打勾 08:00~18:00\n轻触翻转 - [x] 实时防抖| B[("本地 localStorage\n计划+执行+反思+微步+体态+连赢6次\n100% 隐私绝不上公网")]
+        A -->|一键【📋 粘贴载入】或【☁️ 云端拉取】| B[("本地 localStorage\n智能解耦：时间表流展示 + Checkbox 打勾\n100% 隐私绝不上公网")]
     end
 
-    subgraph PC端 ["🖥️ 电脑端 (Windows)"]
-        C["局域网直通桥梁 & 数据总线\nobsidian_sync_server.py:28888\n(任务栏托盘常驻 + 开机自启)"]
+    subgraph 云桥与PC端 ["☁️ 谷歌云盘云桥 & 本地网关"]
+        GAS["Google Apps Script 谷歌云桥\n全网直连无需依赖电脑局域网"]
+        C["obsidian_sync_server.py:28888\n(本地系统托盘网关)"]
         D["Obsidian 知识库\nD:\\cangku\\浮生"]
         E["知行日志归档\n04_知行生活/身心纪事/YYYY-MM-DD_每日知行日志.md"]
-        F[("本地总线镜像\ntimemirror_state.json")]
     end
 
-    GS -.->|Google Drive 客户端自动拉取| F
-    C <-->|读写计划与总线| F
-    A -->|"晨起一键【☁️ 拉取计划】\n日间打勾实时更新"| C
-    A -->|"暮夜点击【🚀 局域网直通写入】"| C
-    C -->|"全要素秒级精准写入\n立志/对账/慎独/微步/身心/胜者看板"| E
+    A <-->|全网双向漫游同步| GAS
+    A -.->|局域网直通写入 (可选)| C
+    C -->|全要素落盘| E
 ```
 
 ---
 
 ## 二、当前重大里程碑与已验证成果 (Verified Milestones)
 
+- [x] **⏱️ 时间节奏与可打勾待办解耦 & 谷歌云桥拉取 (v1.6.0 深度契合 Gemini 真实规划输出)**：
+  - **解耦渲染**：彻底根除将「今日时间节奏」日程流水（如 `- **08:30 - 09:30**｜...`）误加 Checkbox 的问题，时间节奏自动呈现为高颜值时间徽章流，仅对「核心待办」与「进阶选做」渲染大触控 Checkbox；
+  - **一键粘贴载入**：在晨起立志卡片直接增设【📋 粘贴载入】按钮，手机从 Gemini 聊天一键复制后轻触秒级自动分离时间流与待办项；
+  - **云桥拉取优先**：【☁️ 云端拉取】按钮全面优先绑定 Google Apps Script 谷歌云桥（`CloudSyncAdapter.pullFromCloud()`），手机外出或单机使用时不再强制依赖电脑 28888 局域网在线；
+  - **双锁机制执行**：严格同步递增升级 `index.html` 顶栏 Badge 与内置 `#changelogModal` 静态卡片，彻底消灭版本倒流与内置更新日志陈旧的问题。
 - [x] **🌐 双核协同数据总线与 Markdown 待办动态清单 (v1.5.0 战略大脑与工程双手闭环)**：
   - 接入云端 Gemini 与本地 Antigravity“单向时序闭环（Single-Source-of-Truth）”双核交接协议；
   - 本地桥梁 `obsidian_sync_server.py:28888` 升级为数据总线网关，打通 `timemirror_state.json` 自动落盘与双端镜像（`D:\cangku\浮生` 与 `G:\我的云端硬盘` 双写容灾）；
@@ -156,6 +159,6 @@ flowchart LR
 2. **严禁在会话后台残留任务（严禁 1 task running）**：
    - 用户界面的后台任务显示必须始终清零！绝对不要通过 `IsDaemon: true` 把 `obsidian_sync_server.py` 挂在 Antigravity 会话任务中。
    - 同步服务只属于 Windows 本地系统进程（开机自启或由用户双击批处理启动）。
-3. **主动更新原则**：
-   - 每次对话产生了新的功能实现或架构调整，AI 必须在回答结束前**主动修改本文件**，更新日期、版本与里程碑。
-   - 若某个假设已被证伪或废弃，直接从本文件中删除，保持知识的高信噪比。
+4. **【版本号与前端内置更新日志双锁红线 (严禁版本倒流与内置弹窗遗漏)】**：
+   - **版本号自增审查**：每次功能迭代前，必须审查 `index.html`、`sw.js`、`WORKFLOW_LOG.md` 中已发布之最高版本，版本号严格单调递增，严禁版本倒流！
+   - **前端内置日志必改**：时镜在手机端点击版本 Badge 唤起的是 `index.html` 内置静态 HTML `#changelogModal`，绝不可只改 `CHANGELOG.md` 而漏改 `index.html` 内置卡片！必须同步在 `#changelogModal` 顶部插入包含当前日期和新特性的 `.changelog-card.current`。
