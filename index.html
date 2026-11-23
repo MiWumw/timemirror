@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.6.3">
+  <link rel="stylesheet" href="style.css?v=1.6.4">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.3</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.4</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -690,12 +690,28 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.6.3 Current -->
+    <!-- v1.6.4 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
+          <span>v1.6.4</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 计划保真同步与 Google Docs 智能解析版</span>
+        </div>
+        <span class="changelog-date">2026-11-23</span>
+      </div>
+      <ul class="changelog-list">
+        <li><b>✅ 日志导出真实保真与打勾状态同步</b>：彻底解决打勾丢失与时间表误加方框问题！推送到云端或 Obsidian 的晨起立志完全保留原始 Markdown 结构，已勾选的 <code>- [x]</code> 100% 忠实同步，时间表大表不再被误加复选框。</li>
+        <li><b>📄 Google Docs 原生文本提取与防 PDF 乱码</b>：攻克云盘将 Google 文档自动转为 <code>%PDF-1.4</code> 二进制乱码的痛点，云桥自动使用 DocumentApp 提取纯文本，前端增加二进制流安全拦截。</li>
+        <li><b>📑 多版本重名文件按修改时间自愈排序</b>：云盘存在多个计划文件时，自动按最后修改时间（LastUpdated）降序嗅探，永远锁定 Gemini 最新落盘的那一份计划。</li>
+      </ul>
+    </div>
+
+    <!-- v1.6.3 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
           <span>v1.6.3</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 计划拉取智能双通道自愈版</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
         </div>
         <span class="changelog-date">2026-11-22</span>
       </div>
@@ -1067,6 +1083,6 @@
 
   </div>
 
-  <script src="app.js?v=1.6.3"></script>
+  <script src="app.js?v=1.6.4"></script>
 </body>
 </html>

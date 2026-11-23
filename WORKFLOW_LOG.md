@@ -85,7 +85,18 @@
 - **状态**：🟢 系统环境彻底减熵归零，STANDBY 待命。
 ---
 
-## [2026-11-22 21:45] 任务：接入 Google 官方 clasp CLI 全自动部署流水线
+## [2026-11-23 08:18] 任务：v1.6.4 计划保真同步与 Google Docs 智能解析版全量落地
+- **决策来源**：用户反馈（时间表被误加复选框、待办打勾导出时丢失、Gemini 生成 Google Docs 导致拉取到 PDF 字节乱码与多版本重名冲突）
+- **核心落地**：
+  - `fs/timemirror/app.js`: 重构 `generateFullZhixingMarkdown`，导出的晨起立志完全保留原始 Markdown 结构，已勾选的 `- [x]` 忠实原样输出，未勾选的 `- [ ]` 保持待办，时间表绝不被加方框；`CloudSyncAdapter.pullFromCloud` 增加针对 `%PDF-` 二进制字节流的前端拦截；
+  - `fs/timemirror/gas/Code.js`: 重写 `readBestPlanContent`，针对 Google Docs 格式通过 `DocumentApp` 提取纯文本避免被 Drive 强转 PDF；对多同名候选文件按 `getLastUpdated()` 降序排序，永远提取最新排期；
+  - 自动 CI/CD 发布：通过本地 `clasp push` 与 `clasp deploy -i AKfycby3TFVfcovWnUUEL7QwZQYVTyhltr2_hhqDhWqJCnBKsrKxECGgOqPFXqwKrnTPrQGa` 原地升级发布至版本 4，URL 保持不变；
+  - `fs/timemirror/index.html`: 顶栏升级至 `v1.6.4`；内置更新日志弹窗新增 `v1.6.4 (2026-11-23)` 卡片；
+  - `fs/timemirror/sw.js`: 升级缓存键至 `timemirror-v164-preserve-checklist-docs-parser`，静态资源版本穿透对齐 `?v=1.6.4`；
+  - `fs/timemirror/CHANGELOG.md` & `CONTEXT_HUB.md`: 增补 `v1.6.4` 迭代记录。
+- **本地验证结果**：`node -c app.js` 语法校验通过，clasp push & deploy 验证通过。
+- **状态**：🟢 全部落地完成，严格遵循版本号与前端内置弹窗双锁红线。
+---
 - **决策来源**：用户需求（实现云桥代码自动更改、自动转换版本、自动部署，彻底消灭手动网页操作）
 - **核心落地**：
   - `fs/timemirror/gas/`: 建立云桥脚本本地管理目录，纳入 `Code.js` 与 `appsscript.json`；安装官方 `@google/clasp` (v3.4.1)；

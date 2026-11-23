@@ -3110,11 +3110,16 @@ function generateFullZhixingMarkdown(dateStr) {
   sections.push('### 🎯 晨起立志（打算做什么？）');
   sections.push('> 顺应今日身心气能，参考 [[学习项目四阶追踪表]]，每日核心要务不超过 3 件：');
   if (plan) {
-    const lines = plan.split('\n').map(l => l.trim()).filter(Boolean);
-    lines.forEach((l, idx) => {
-      const clean = l.replace(/^(?:-\s*\[[ x]\]\s*)?(?:\d+[\.\、]\s*)?/, '').trim();
-      sections.push(`- [ ] ${idx + 1}. ${clean}`);
-    });
+    // 智能保真：如果 plan 已经包含了 Markdown 小节标题 (###)、任务框 (- [ ] / - [x])、分割线 (---) 或时间表 (- **HH:MM)
+    if (plan.includes('###') || plan.includes('- [') || plan.includes('**｜') || plan.includes('**|') || plan.includes('---')) {
+      sections.push(plan);
+    } else {
+      const lines = plan.split('\n').map(l => l.trim()).filter(Boolean);
+      lines.forEach((l, idx) => {
+        const clean = l.replace(/^(?:-\s*\[[ x]\]\s*)?(?:\d+[\.\、]\s*)?/, '').trim();
+        sections.push(`- [ ] ${idx + 1}. ${clean}`);
+      });
+    }
   } else {
     sections.push('- [ ] 1. \n- [ ] 2. \n- [ ] 3. ');
   }
@@ -3736,18 +3741,23 @@ const CloudSyncAdapter = {
       const rawCloudPlan = data.planMarkdown || data.todayPlan || data.todayPlanMarkdown || data.todayPlanContent || (typeof data.plan === 'string' ? data.plan : null);
       if (rawCloudPlan && typeof rawCloudPlan === 'string' && rawCloudPlan.trim()) {
         const cleanPlan = rawCloudPlan.trim();
-        state.plans[queryDate] = cleanPlan;
-        StorageAdapter.save('plans', state.plans);
-        if (inputDailyPlan && queryDate === state.currentDate) {
-          inputDailyPlan.value = cleanPlan;
-          autoResizeTextarea(inputDailyPlan);
-        }
-        if (!merged) {
-          merged = { plans: state.plans };
+        // 🛡️ 防御层：如果文本被意外污染为 PDF 二进制流，自动拦截防乱码
+        if (cleanPlan.startsWith('%PDF-') || cleanPlan.includes('/Producer (Skia/PDF')) {
+          console.warn('⚠️ 云端文件被误转为 PDF 字节流，已自动拦截防乱码');
         } else {
-          merged.plans = state.plans;
+          state.plans[queryDate] = cleanPlan;
+          StorageAdapter.save('plans', state.plans);
+          if (inputDailyPlan && queryDate === state.currentDate) {
+            inputDailyPlan.value = cleanPlan;
+            autoResizeTextarea(inputDailyPlan);
+          }
+          if (!merged) {
+            merged = { plans: state.plans };
+          } else {
+            merged.plans = state.plans;
+          }
+          console.log(`☁️ 成功从云端提取并注入《今日计划.md》(${queryDate})`);
         }
-        console.log(`☁️ 成功从云端提取并注入《今日计划.md》(${queryDate})`);
       }
 
       return merged || data;

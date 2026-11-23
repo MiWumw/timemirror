@@ -11,6 +11,70 @@ function getOrCreateFolder() {
   return DriveApp.createFolder(SYNC_FOLDER_NAME);
 }
 
+// 智能读取《今日计划.md》：兼容 Google Docs 与纯文本、多重名文件按最新更新时间取舍、防 PDF 乱码
+function readBestPlanContent(folder) {
+  var candidateFiles = [];
+
+  function collectFiles(fileIterator) {
+    while (fileIterator.hasNext()) {
+      var f = fileIterator.next();
+      if (!f.isTrashed()) {
+        candidateFiles.push(f);
+      }
+    }
+  }
+
+  // 1. 搜集候选文件：查 TimeMirror_Sync 文件夹和云盘根目录
+  try {
+    collectFiles(folder.getFilesByName("今日计划.md"));
+    collectFiles(folder.getFilesByName("今日计划"));
+    collectFiles(DriveApp.getFilesByName("今日计划.md"));
+    collectFiles(DriveApp.getFilesByName("今日计划"));
+  } catch(e) {}
+
+  if (candidateFiles.length === 0) return "";
+
+  // 2. 去重并按最后更新时间 (LastUpdated) 降序排序，最新修改的排在最前！
+  var uniqueFiles = [];
+  var seenIds = {};
+  for (var i = 0; i < candidateFiles.length; i++) {
+    var file = candidateFiles[i];
+    if (!seenIds[file.getId()]) {
+      seenIds[file.getId()] = true;
+      uniqueFiles.push(file);
+    }
+  }
+
+  uniqueFiles.sort(function(a, b) {
+    return b.getLastUpdated().getTime() - a.getLastUpdated().getTime();
+  });
+
+  // 3. 逐个提取文本内容，避免 PDF 导出乱码
+  for (var j = 0; j < uniqueFiles.length; j++) {
+    var targetFile = uniqueFiles[j];
+    var text = "";
+    try {
+      var mime = targetFile.getMimeType();
+      if (mime === MimeType.GOOGLE_DOCS) {
+        // 关键防护：如果是 Google Docs 文档，用 DocumentApp 提取纯文本！绝不能用 getBlob() 导出为 PDF！
+        text = DocumentApp.openById(targetFile.getId()).getBody().getText();
+      } else {
+        // 纯文本 Markdown
+        text = targetFile.getBlob().getDataAsString("utf-8");
+      }
+
+      // 4. 防呆校验：如果内容被意外解析成了 PDF，丢弃并尝试下一个候选
+      if (text && !text.startsWith("%PDF-") && !text.includes("/Producer (Skia/PDF")) {
+        return text.trim();
+      }
+    } catch(err) {
+      // 容错继续下一个候选
+    }
+  }
+
+  return "";
+}
+
 // 1. 处理 GET 请求：从云盘拉取最新全量状态 + 自动提取《今日计划.md》
 function doGet(e) {
   const folder = getOrCreateFolder();
@@ -24,18 +88,8 @@ function doGet(e) {
     } catch(err) {}
   }
 
-  // B. 🎯 核心增强：读取 Gemini 写入的《今日计划.md》
-  // （支持双重嗅探：优先在 TimeMirror_Sync 查，若没有则在云盘根目录查）
-  let planMarkdown = "";
-  try {
-    let planFiles = folder.getFilesByName("今日计划.md");
-    if (!planFiles.hasNext()) {
-      planFiles = DriveApp.getFilesByName("今日计划.md");
-    }
-    if (planFiles.hasNext()) {
-      planMarkdown = planFiles.next().getBlob().getDataAsString("utf-8");
-    }
-  } catch(planErr) {}
+  // B. 🎯 核心增强：读取 Gemini 写入的《今日计划.md》(最新文件优先 + Google Docs 智能提取)
+  const planMarkdown = readBestPlanContent(folder);
 
   // C. 打包返回给时镜
   const responseData = {

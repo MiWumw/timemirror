@@ -2,8 +2,8 @@
 
 > **文档性质**：面向多智能体（AI Pair Programmer）与开发者跨会话接力的活态系统枢纽。  
 > **维护规则**：AI 需根据用户对话与功能演进**自发、主动增删修改**，无需等待用户催促，始终保持信息最新。  
-> **当前版本**：v1.6.3 · 计划拉取智能双通道自愈版  
-> **更新时间**：2026-11-22 16:20
+> **当前版本**：v1.6.4 · 计划保真同步与 Google Docs 智能解析版  
+> **更新时间**：2026-11-23 08:20
 
 ---
 
@@ -16,23 +16,24 @@ flowchart LR
     subgraph 云端大脑 ["☁️ 云端大脑 (Gemini / 数字管家)"]
         G["网页/手机端 Gemini\n晚间推演复盘 21:00~23:00"]
         G -->|生成次日安排| GM["今日计划 Markdown\n(时间节奏流 + 核心待办 + 进阶选做)"]
-        GM -->|直接落盘| GMD["云盘 今日计划.md"]
+        GM -->|直接落盘| GMD["云盘 今日计划.md (支持 Docs/纯文本多版本自愈)"]
     end
 
-    subgraph 移动端 ["📱 移动端 (手机 PWA v1.6.3)"]
+    subgraph 移动端 ["📱 移动端 (手机 PWA v1.6.4)"]
         A["时镜 Web App\nhttps://miwumw.github.io/timemirror/"]
         A -->|新建时间块| T["开始自动接续上个块\n结束自动对齐手机当前时刻！"]
-        A -->|一键【☁️ 云端拉取】| B["智能双通道：优先云桥，空缺则电脑网关自愈\n提取时间表流展示 + Checkbox 打勾"]
+        A -->|一键【☁️ 云端拉取】| B["智能双通道：自动过滤 PDF 乱码\n提取时间表流展示 + Checkbox 打勾"]
+        A -->|打勾并推送到云端| EXP["晨起立志保真导出：保留 - [x] 勾选状态与时间表流\n绝不强行添加方框毁容！"]
     end
 
     subgraph 云桥与PC端 ["☁️ 谷歌云盘云桥 & 本地网关"]
-        GAS["Google Apps Script 谷歌云桥\n全网直连读写 timemirror_state.json 与 今日计划.md"]
+        GAS["Google Apps Script 谷歌云桥 v4\n支持 DocumentApp 纯文本提取与最新文件优先"]
         C["obsidian_sync_server.py:28888\n(本地系统托盘网关)"]
         D["Obsidian 知识库\nD:\\cangku\\浮生"]
         E["知行日志归档\n04_知行生活/身心纪事/YYYY-MM-DD_每日知行日志.md"]
     end
 
-    GMD -->|GAS 读取并打包| GAS
+    GMD -->|GAS 智能解析防乱码| GAS
     GMD -.->|云盘桌面客户端秒级镜像| C
     A <-->|通道 1：全网漫游同步| GAS
     A -.->|通道 2：局域网自愈与秒级直通| C
@@ -43,6 +44,11 @@ flowchart LR
 
 ## 二、当前重大里程碑与已验证成果 (Verified Milestones)
 
+- [x] **✅ 计划保真同步与 Google Docs 智能解析版 (v1.6.4 2026-11-23 攻克乱码与打勾丢失)**：
+  - **日志导出真实保真与打勾状态 100% 同步**：重构 `generateFullZhixingMarkdown`，导出的晨起立志完全保留原始 Markdown 结构，已勾选的 `- [x]` 忠实原样输出，未勾选的 `- [ ]` 保持待办，时间表绝不被误加复选框；
+  - **Google Docs 原生文本提取与防 PDF 乱码双向阻断**：云桥通过 `DocumentApp` 智能提取 Google 文档纯文本，彻底终结 `%PDF-1.4 ... /Producer (Skia/PDF` 字节流乱码，并在前端加设二进制安全拦截；
+  - **多版本重名文件按修改时间自愈排序**：云盘存在多个同名《今日计划.md》时，自动按最后修改时间（`LastUpdated`）降序嗅探，永远锁定 Gemini 刚刚最新生成的排期；
+  - **全自动 CI/CD 原地发布**：本地使用 `clasp push` 与 `clasp deploy -i ...` 成功将云桥原地升级至版本 4，URL 保持不变。
 - [x] **🚀 Google 官方 clasp CLI 全自动部署流水线贯通 (2026-11-22 21:45 彻底告别网页手动部署)**：
   - **本地工程化接入**：在 `D:\fzl\fs\timemirror\gas\` 全量安装并配置 Google 官方 `@google/clasp` (v3.4.1) 工具链；
   - **安全凭证与项目绑定**：完成 Google OAuth 开发者授权绑定（账号 `mingxin2430@gmail.com`），绑定脚本项目 `1CmEl5GJU3PAqwO7WOSonC7vUTS2hR_1R6OsB7SkA2JMn00U8n9Z5s6LQ`，Token 自动隔离于 `.gitignore`；

@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v163-dual-channel-pull';
+const CACHE_NAME = 'timemirror-v164-preserve-checklist-docs-parser';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.6.3',
-  './app.js?v=1.6.3',
+  './style.css?v=1.6.4',
+  './app.js?v=1.6.4',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
