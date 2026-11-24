@@ -99,16 +99,31 @@ def extract_plan_from_obsidian(date_str):
     candidate_paths = [
         os.path.join(r"G:\我的云端硬盘", "今日计划.md"),
         os.path.join(r"G:\我的云端硬盘\TimeMirror_Sync", "今日计划.md"),
+        os.path.join(r"G:\我的云端硬盘\TimeMirror_Sync (1)", "今日计划.md"),
         os.path.join(VAULT_ROOT, "今日计划.md"),
         os.path.join(VAULT_ROOT, "04_知行生活", "今日计划.md"),
         os.path.join(diary_dir, "今日计划.md"),
     ]
+    # 动态扫描 G 盘中所有包含 TimeMirror_Sync 的文件夹及今日计划文件
+    try:
+        import glob
+        g_drive_root = r"G:\我的云端硬盘"
+        if os.path.exists(g_drive_root):
+            found_plans = glob.glob(os.path.join(g_drive_root, "*TimeMirror_Sync*", "*计划*"))
+            found_plans += glob.glob(os.path.join(g_drive_root, "*今日计划*"))
+            # 过滤非 txt/md，并按修改时间倒序排列
+            valid_found = [p for p in found_plans if os.path.isfile(p) and not p.endswith(".gdoc")]
+            valid_found.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+            candidate_paths = valid_found + candidate_paths
+    except Exception:
+        pass
+
     for cp in candidate_paths:
-        if os.path.exists(cp):
+        if os.path.exists(cp) and os.path.isfile(cp):
             try:
                 with open(cp, "r", encoding="utf-8") as f:
                     p_text = f.read().strip()
-                if p_text:
+                if p_text and not p_text.startswith("%PDF-"):
                     return p_text
             except Exception:
                 pass

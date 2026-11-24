@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.4</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.5</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -147,7 +147,7 @@
         </div>
         <div class="weight-input-row">
           <div class="weight-input-wrap">
-            <input type="number" id="inputDailyWeight" class="weight-input" placeholder="0.0" step="0.1" min="30" max="200">
+            <input type="number" id="inputDailyWeight" class="weight-input" placeholder="0.00" step="any" min="30" max="200">
             <span class="weight-unit">kg</span>
           </div>
           <div class="weight-step-group">
@@ -690,12 +690,28 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.6.4 Current -->
+    <!-- v1.6.5 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
+          <span>v1.6.5</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 移动端响应排版 & 体重两位小数精度 & 全盘模糊计划智能识别版</span>
+        </div>
+        <span class="changelog-date">2026-11-24</span>
+      </div>
+      <ul class="changelog-list">
+        <li><b>⚖️ 体重输入光标错位跳字彻底修复 & 支持两位小数精度</b>：攻克慢速输入 <code>50.25</code> 时被重写为 <code>2550</code> 以及快速输入被强行四舍五入为 <code>50.3</code> 的痛点！输入框获焦打字时绝对保护原样光标，支持 <code>50.25</code> 等两位小数（0.01kg）高精度体重新标准。</li>
+        <li><b>📱 手机端晨起立志卡片头部响应式换行排版</b>：彻底解决 6 枚操作按钮与状态徽标在竖屏手机上向右超出屏幕、文字被严重挤压变形的问题。自适应两行整齐排列，文字不换行断裂，排版美观紧凑。</li>
+        <li><b>☁️ 谷歌云盘全盘模糊匹配 & 最新修改智能优先识别</b>：云桥全面升级，自动兼容 <code>TimeMirror_Sync (1)</code> 多重名文件夹与任意带 <code>今日计划</code> / <code>计划</code> 前后缀的文件，智能按最后修改时间（LastUpdated）与当天日期加权，永远锁定最新鲜的一份计划。</li>
+      </ul>
+    </div>
+
+    <!-- v1.6.4 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
           <span>v1.6.4</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 计划保真同步与 Google Docs 智能解析版</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
         </div>
         <span class="changelog-date">2026-11-23</span>
       </div>

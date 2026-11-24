@@ -1,75 +1,172 @@
 /**
  * 《时镜 TimeMirror》谷歌云端直连中枢 (Google Apps Script Web App)
- * 作用：无需登录即可在任意设备同步全量数据，自动读取 Gemini《今日计划.md》，并自动在云盘生成 Obsidian 每日知行日志
+ * 作用：无需登录即可在任意设备同步全量数据，智能模糊匹配与读取 Gemini《今日计划.md》，并自动在云盘生成 Obsidian 每日知行日志
  */
 
 const SYNC_FOLDER_NAME = "TimeMirror_Sync"; // 存放全量数据与日记的云盘文件夹
 
+// 智能获取工作文件夹：优先返回最近更新且有效的 TimeMirror_Sync 文件夹 (兼容 TimeMirror_Sync (1) 等重名情况)
 function getOrCreateFolder() {
-  const folders = DriveApp.getFoldersByName(SYNC_FOLDER_NAME);
-  if (folders.hasNext()) return folders.next();
+  var latestFolder = null;
+  var latestTime = 0;
+
+  try {
+    var folders = DriveApp.getFoldersByName(SYNC_FOLDER_NAME);
+    while (folders.hasNext()) {
+      var f = folders.next();
+      if (!f.isTrashed()) {
+        var t = f.getLastUpdated().getTime();
+        if (t > latestTime) {
+          latestTime = t;
+          latestFolder = f;
+        }
+      }
+    }
+  } catch(e) {}
+
+  if (!latestFolder) {
+    try {
+      var allFolders = DriveApp.getFolders();
+      while (allFolders.hasNext()) {
+        var f = allFolders.next();
+        if (f.getName().indexOf(SYNC_FOLDER_NAME) !== -1 && !f.isTrashed()) {
+          var t = f.getLastUpdated().getTime();
+          if (t > latestTime) {
+            latestTime = t;
+            latestFolder = f;
+          }
+        }
+      }
+    } catch(e) {}
+  }
+
+  if (latestFolder) return latestFolder;
   return DriveApp.createFolder(SYNC_FOLDER_NAME);
 }
 
-// 智能读取《今日计划.md》：兼容 Google Docs 与纯文本、多重名文件按最新更新时间取舍、防 PDF 乱码
-function readBestPlanContent(folder) {
+// 智能全盘搜索与读取《今日计划》：支持模糊匹配、日期加权、最新修改优先、Google Docs纯文本与防乱码
+function readBestPlanContent(primaryFolder, targetDate) {
   var candidateFiles = [];
+  var seenIds = {};
 
-  function collectFiles(fileIterator) {
-    while (fileIterator.hasNext()) {
-      var f = fileIterator.next();
-      if (!f.isTrashed()) {
+  function addCandidate(f) {
+    if (!f) return;
+    try {
+      if (f.isTrashed()) return;
+      var fid = f.getId();
+      if (!seenIds[fid]) {
+        seenIds[fid] = true;
         candidateFiles.push(f);
       }
-    }
+    } catch(e) {}
   }
 
-  // 1. 搜集候选文件：查 TimeMirror_Sync 文件夹和云盘根目录
+  // 1. 深度扫描 primaryFolder 内部的文件
   try {
-    collectFiles(folder.getFilesByName("今日计划.md"));
-    collectFiles(folder.getFilesByName("今日计划"));
-    collectFiles(DriveApp.getFilesByName("今日计划.md"));
-    collectFiles(DriveApp.getFilesByName("今日计划"));
+    if (primaryFolder) {
+      var fIter = primaryFolder.getFiles();
+      while (fIter.hasNext()) {
+        var file = fIter.next();
+        var name = file.getName();
+        if (name.indexOf("计划") !== -1 && name.indexOf("每日知行日志") === -1 && name.indexOf("timemirror_state") === -1) {
+          addCandidate(file);
+        }
+      }
+    }
   } catch(e) {}
+
+  // 2. 深度扫描所有包含 TimeMirror_Sync 的文件夹内部的所有文件
+  try {
+    var allFolders = DriveApp.getFolders();
+    while (allFolders.hasNext()) {
+      var sFolder = allFolders.next();
+      if (sFolder.getName().indexOf(SYNC_FOLDER_NAME) !== -1 && !sFolder.isTrashed()) {
+        var fIter = sFolder.getFiles();
+        while (fIter.hasNext()) {
+          var file = fIter.next();
+          var name = file.getName();
+          if (name.indexOf("计划") !== -1 && name.indexOf("每日知行日志") === -1 && name.indexOf("timemirror_state") === -1) {
+            addCandidate(file);
+          }
+        }
+      }
+    }
+  } catch(e) {}
+
+  // 3. 全盘按常见文件名精确查找
+  try {
+    var pFiles = DriveApp.getFilesByName("今日计划.md");
+    while (pFiles.hasNext()) addCandidate(pFiles.next());
+    var pFiles2 = DriveApp.getFilesByName("今日计划");
+    while (pFiles2.hasNext()) addCandidate(pFiles2.next());
+  } catch(e) {}
+
+  // 4. searchFiles 容错查询
+  try {
+    var searchIter = DriveApp.searchFiles("title contains '今日计划' and trashed = false");
+    while (searchIter.hasNext()) addCandidate(searchIter.next());
+  } catch(e) {}
+
+  if (targetDate) {
+    try {
+      var dateSearchIter = DriveApp.searchFiles("title contains '" + targetDate + "' and trashed = false");
+      while (dateSearchIter.hasNext()) {
+        var df = dateSearchIter.next();
+        if (df.getName().indexOf("计划") !== -1) addCandidate(df);
+      }
+    } catch(e) {}
+  }
 
   if (candidateFiles.length === 0) return "";
 
-  // 2. 去重并按最后更新时间 (LastUpdated) 降序排序，最新修改的排在最前！
-  var uniqueFiles = [];
-  var seenIds = {};
-  for (var i = 0; i < candidateFiles.length; i++) {
-    var file = candidateFiles[i];
-    if (!seenIds[file.getId()]) {
-      seenIds[file.getId()] = true;
-      uniqueFiles.push(file);
-    }
-  }
+  // 5. 智能权重评分与排序：最新修改与契合度最高的文件排在第一名
+  candidateFiles.sort(function(a, b) {
+    var scoreA = a.getLastUpdated().getTime();
+    var scoreB = b.getLastUpdated().getTime();
+    var nameA = a.getName();
+    var nameB = b.getName();
 
-  uniqueFiles.sort(function(a, b) {
-    return b.getLastUpdated().getTime() - a.getLastUpdated().getTime();
+    if (targetDate) {
+      if (nameA.indexOf(targetDate) !== -1) scoreA += 10000000000000;
+      if (nameB.indexOf(targetDate) !== -1) scoreB += 10000000000000;
+    }
+    if (nameA.indexOf("今日计划") !== -1) scoreA += 5000000000000;
+    if (nameB.indexOf("今日计划") !== -1) scoreB += 5000000000000;
+
+    return scoreB - scoreA;
   });
 
-  // 3. 逐个提取文本内容，避免 PDF 导出乱码
-  for (var j = 0; j < uniqueFiles.length; j++) {
-    var targetFile = uniqueFiles[j];
+  // 6. 逐个提取文本内容，解析 Google Docs 并过滤 PDF 乱码
+  for (var j = 0; j < candidateFiles.length; j++) {
+    var targetFile = candidateFiles[j];
     var text = "";
     try {
       var mime = targetFile.getMimeType();
       if (mime === MimeType.GOOGLE_DOCS) {
-        // 关键防护：如果是 Google Docs 文档，用 DocumentApp 提取纯文本！绝不能用 getBlob() 导出为 PDF！
-        text = DocumentApp.openById(targetFile.getId()).getBody().getText();
+        // 若为 Google Docs，尝试 Drive API 导出或 DocumentApp
+        try {
+          var exportUrl = "https://www.googleapis.com/drive/v3/files/" + targetFile.getId() + "/export?mimeType=text/plain";
+          var res = UrlFetchApp.fetch(exportUrl, {
+            headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() },
+            muteHttpExceptions: true
+          });
+          if (res.getResponseCode() === 200) text = res.getContentText("utf-8");
+        } catch(e1) {
+          try {
+            text = DocumentApp.openById(targetFile.getId()).getBody().getText();
+          } catch(e2) {}
+        }
       } else {
-        // 纯文本 Markdown
+        // 普通纯文本 Markdown 文件
         text = targetFile.getBlob().getDataAsString("utf-8");
       }
-
-      // 4. 防呆校验：如果内容被意外解析成了 PDF，丢弃并尝试下一个候选
-      if (text && !text.startsWith("%PDF-") && !text.includes("/Producer (Skia/PDF")) {
-        return text.trim();
+      if (text) {
+        text = text.trim();
+        if (!text.startsWith("%PDF-") && !text.includes("/Producer (Skia/PDF") && text.length > 5) {
+          return text;
+        }
       }
-    } catch(err) {
-      // 容错继续下一个候选
-    }
+    } catch(err) {}
   }
 
   return "";
@@ -78,6 +175,7 @@ function readBestPlanContent(folder) {
 // 1. 处理 GET 请求：从云盘拉取最新全量状态 + 自动提取《今日计划.md》
 function doGet(e) {
   const folder = getOrCreateFolder();
+  const targetDate = (e && e.parameter && e.parameter.date) ? e.parameter.date : "";
 
   // A. 读取全量状态 JSON
   const files = folder.getFilesByName("timemirror_state.json");
@@ -89,7 +187,7 @@ function doGet(e) {
   }
 
   // B. 🎯 核心增强：读取 Gemini 写入的《今日计划.md》(最新文件优先 + Google Docs 智能提取)
-  const planMarkdown = readBestPlanContent(folder);
+  const planMarkdown = readBestPlanContent(folder, targetDate);
 
   // C. 打包返回给时镜
   const responseData = {

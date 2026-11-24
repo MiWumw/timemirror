@@ -6,6 +6,22 @@
 
 ---
 
+## [2026-11-24 10:35] 任务：v1.6.5 移动端响应排版 & 体重两位小数精度 & 全盘模糊计划智能识别全量落地
+- **决策来源**：用户移动端实机使用痛点反馈（计划拉取提示暂无、按钮溢出屏幕、体重输入 50.25 变成 2550 与截断 50.3）
+- **改动文件清单**：
+  - `fs/timemirror/app.js`: 增加 `document.activeElement` 保护阻止输入时 DOM 重写光标错位；将体重精度提升为支持两位小数 `Math.round(val * 100) / 100`；
+  - `fs/timemirror/index.html`: 体重输入框改为 `step="any"` 与 `placeholder="0.00"`；更新版本徽章为 `v1.6.5`，追加 changelog；
+  - `fs/timemirror/style.css`: `.zhixing-card-header` 与 `.zhixing-actions` 响应式重构，移动端自适应分行与不折行胶囊排版，消灭右边界溢出；
+  - `fs/timemirror/gas/Code.js`: 云桥支持深度扫描含 `TimeMirror_Sync*` 的文件夹与全盘模糊计划查找；支持日期加权与按修改时间自愈排序；
+  - `fs/timemirror/obsidian_sync_server.py`: 同步支持 `TimeMirror_Sync*` 动态匹配与查找最新计划；
+  - `fs/timemirror/sw.js`: 缓存更新至 `timemirror-v165-weight-overflow-plan-fuzzy`。
+- **部署与验证结果**：
+  - `clasp push -f` 与 `clasp deploy` 成功更新 GAS 线上版本 10；
+  - `node -c app.js` 语法检测 100% 通过；
+  - 手机端排版与体重输入全面修复。
+
+---
+
 ## [2026-11-14 20:55] 任务：v1.3.2 身心症状与过程写入增强版落地
 - **大脑规划要求**：身心状态解耦独立、打字实时防抖持久化、空值抹除防御、平滑升级托盘直通服务。
 - **执行改动文件**：

@@ -532,7 +532,8 @@ function initEventListeners() {
       } else {
         curr += step;
       }
-      inputDailyWeight.value = curr.toFixed(1);
+      curr = Math.round(curr * 100) / 100;
+      inputDailyWeight.value = curr;
       handleSaveWeightOnly(false);
     });
   });
@@ -542,9 +543,12 @@ function initEventListeners() {
     btnSaveWeightOnly.addEventListener('click', () => handleSaveWeightOnly(true));
   }
 
-  // 体重输入框实时输入防抖保存
+  // 体重输入框实时输入防抖保存与失焦整理
   if (inputDailyWeight) {
     inputDailyWeight.addEventListener('input', handleWeightInput);
+    inputDailyWeight.addEventListener('blur', () => {
+      handleSaveWeightOnly(false);
+    });
   }
 
   // 体重走势折叠抽屉切换
@@ -1433,9 +1437,12 @@ function renderDailyWeightSection() {
   if (!inputDailyWeight) return;
 
   const currentWeight = state.weights[state.currentDate];
-  inputDailyWeight.value = (currentWeight !== undefined && currentWeight !== null) ? currentWeight : '';
+  // 关键防护：如果用户正在输入框中打字编辑（activeElement），绝对不要改写 input.value，防止光标跳动与拼字错位（如 50.25 变成 2550）
+  if (document.activeElement !== inputDailyWeight) {
+    inputDailyWeight.value = (currentWeight !== undefined && currentWeight !== null) ? currentWeight : '';
+  }
 
-  // 计算与昨天的差值
+  // 计算与昨天的差值 (支持两位小数精度)
   const d = new Date(state.currentDate);
   d.setDate(d.getDate() - 1);
   const yestStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -1443,7 +1450,7 @@ function renderDailyWeightSection() {
 
   if (weightDiffTag) {
     if (currentWeight !== undefined && currentWeight !== null && yestWeight !== undefined && yestWeight !== null) {
-      const diff = Number((currentWeight - yestWeight).toFixed(1));
+      const diff = Math.round((currentWeight - yestWeight) * 100) / 100;
       if (diff < 0) {
         weightDiffTag.className = 'weight-diff-tag down';
         weightDiffTag.textContent = `↓ 减轻 ${Math.abs(diff)} kg`;
@@ -1476,7 +1483,7 @@ function handleSaveWeightOnly(showToastNotice = true) {
   } else {
     const num = parseFloat(val);
     if (!isNaN(num) && num > 0) {
-      state.weights[state.currentDate] = Number(num.toFixed(1));
+      state.weights[state.currentDate] = Math.round(num * 100) / 100;
     }
   }
   saveWeights();
@@ -1686,7 +1693,7 @@ function flushZhixingDrafts() {
   }
   if (inputDailyWeight && inputDailyWeight.value.trim() !== '') {
     const num = parseFloat(inputDailyWeight.value.trim());
-    if (!isNaN(num) && num > 0) state.weights[state.currentDate] = Number(num.toFixed(1));
+    if (!isNaN(num) && num > 0) state.weights[state.currentDate] = Math.round(num * 100) / 100;
   }
   if (inputBodySymptomNotes) {
     const sVal = inputBodySymptomNotes.value;
@@ -2204,14 +2211,14 @@ function handleReflectionInput() {
   }, 200);
 }
 
-// 体重实时输入防抖处理
+// 体重实时输入防抖处理 (支持 50.25 等任意精度，打字中绝不重写输入框或强制取整)
 let weightInputTimer = null;
 function handleWeightInput() {
   if (!inputDailyWeight) return;
   clearTimeout(weightInputTimer);
   weightInputTimer = setTimeout(() => {
     handleSaveWeightOnly(false);
-  }, 350);
+  }, 500);
 }
 
 // 3. 第二段：实际执行 (暮夜对账) 动态流渲染
@@ -3277,7 +3284,7 @@ async function syncToObsidianLAN() {
   if (inputDailyWeight && inputDailyWeight.value.trim() !== '') {
     const parsed = parseFloat(inputDailyWeight.value.trim());
     if (!isNaN(parsed) && parsed > 0) {
-      weightVal = Number(parsed.toFixed(1));
+      weightVal = Math.round(parsed * 100) / 100;
       state.weights[state.currentDate] = weightVal;
       saveWeights();
     }
@@ -3792,7 +3799,7 @@ const CloudSyncAdapter = {
     if (inputDailyWeight && dStr === state.currentDate && inputDailyWeight.value.trim() !== '') {
       const parsed = parseFloat(inputDailyWeight.value.trim());
       if (!isNaN(parsed) && parsed > 0) {
-        state.weights[dStr] = Number(parsed.toFixed(1));
+        state.weights[dStr] = Math.round(parsed * 100) / 100;
         saveWeights();
       }
     }

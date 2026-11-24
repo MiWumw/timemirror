@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v164-preserve-checklist-docs-parser';
+const CACHE_NAME = 'timemirror-v165-weight-overflow-plan-fuzzy';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.6.4',
-  './app.js?v=1.6.4',
+  './style.css?v=1.6.5',
+  './app.js?v=1.6.5',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
