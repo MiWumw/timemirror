@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.6.5</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.7.0</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -72,6 +72,8 @@
           </div>
         </div>
       </div>
+      <!-- 昨日未录入时间块晨间补录提醒容器 (补完或忽略自动消失) -->
+      <div id="yesterdayGapAlertContainer"></div>
       <!-- Desktop Mobile Sync Banner -->
       <div class="desktop-qr-card" id="desktopQrCard">
         <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 4px;">📲 手机扫码或浏览器打开体验</div>
@@ -579,7 +581,10 @@
             <button type="button" id="btnOpenCategoryManager" class="mini-text-btn">⚙️ 自定义/管理分类</button>
           </div>
           <div id="categoryChips" class="category-chips-grid">
-            <!-- Dynamically injected category chips -->
+            <!-- Dynamically injected primary category chips -->
+          </div>
+          <div id="subCategoryChipsWrapper" class="sub-category-chips-wrapper" style="display: none;">
+            <!-- Dynamically injected secondary subcategory chips -->
           </div>
 
           <!-- Time Picker -->
@@ -609,7 +614,7 @@
 
           <!-- Note / Details -->
           <div class="form-section-title">具体情况 / 备注（选填）</div>
-          <input type="text" id="inputNote" class="text-input" placeholder="例如：醒来没立刻起，在床上刷手机看新闻">
+          <textarea id="inputNote" class="fullscreen-textarea" style="min-height: 62px; font-size: 0.9rem; padding: 10px 12px; line-height: 1.5;" placeholder="例如：醒来没立刻起，在床上刷手机看新闻（支持多行自动增高）"></textarea>
 
           <!-- Action Buttons -->
           <div class="modal-form-actions" style="display: flex; gap: 10px; margin-top: 14px;">
@@ -645,17 +650,22 @@
 
           <!-- Add New Category Box -->
           <div class="add-category-card" style="margin-top: 14px; background: #F8FAFC; border: 1.5px dashed #CBD5E1; border-radius: var(--radius-md); padding: 12px;">
-            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px;">
-              ➕ 新增活动类型
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">➕ 新增活动类型</span>
+              <select id="newCatParentId" class="text-input" style="width: auto; min-width: 150px; padding: 4px 8px; font-size: 0.78rem; font-weight: 600;">
+                <option value="">📁 作为顶级一级大类</option>
+              </select>
             </div>
             <div style="display: flex; gap: 8px;">
               <input type="text" id="newCatIcon" class="text-input" style="width: 56px; text-align: center; font-size: 1.25rem; padding: 6px;" placeholder="图标" value="✨" maxlength="2">
               <input type="text" id="newCatName" class="text-input" style="flex: 1;" placeholder="分类名称 (如：黄帝内经研读)">
             </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+            <!-- Primary color picker (auto-picked distinct color) -->
+            <div id="newCatPrimaryColorRow" style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; flex-wrap: wrap; gap: 8px;">
               <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 0.78rem; color: var(--text-muted);">颜色:</span>
+                <span style="font-size: 0.78rem; color: var(--text-muted);">自动高对比色:</span>
                 <input type="color" id="newCatColor" value="#3B82F6" style="border: none; width: 34px; height: 30px; border-radius: 6px; cursor: pointer; background: none;">
+                <button type="button" id="btnAutoPickColor" class="mini-text-btn" style="font-size: 0.72rem; padding: 3px 7px;" title="重新匹配一个与现有类别差别最大的颜色">🎲 换个不撞色</button>
               </div>
               <div style="display: flex; align-items: center; gap: 12px;">
                 <label style="font-size: 0.76rem; color: var(--text-muted); display: flex; align-items: center; gap: 4px; cursor: pointer;">
@@ -665,6 +675,13 @@
                   <input type="checkbox" id="newCatIsWaster"> 摸鱼消耗
                 </label>
               </div>
+            </div>
+            <!-- Secondary shade selector (inherits parent hue, auto-hides used shades) -->
+            <div id="newCatShadeRow" style="display: none; margin-top: 10px;">
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+                🎨 继承母类主色阶（已用颜色自动消掉，防撞色）：
+              </div>
+              <div id="newCatShadePalette" class="shade-palette-row"></div>
             </div>
             <button type="button" id="btnAddCategorySubmit" class="btn-primary" style="margin-top: 10px; padding: 8px; font-size: 0.85rem;">
               + 确认添加分类
@@ -690,12 +707,29 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.6.5 Current -->
+    <!-- v1.7.0 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
+          <span>v1.7.0</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 二级细分体系 & 智能配色引擎 & 昨日缺口晨间补录版</span>
+        </div>
+        <span class="changelog-date">2026-11-25</span>
+      </div>
+      <ul class="changelog-list">
+        <li><b>🏷️ 一二级活动类型树状细分体系</b>：支持在任何一级活动大类下自由增删改二级细分（如「深度工作/学习」下细分「黄帝内经」「易经代码」等），弹窗联动展开二级胶囊，时间流展示母类归属角标，图表精准统计！</li>
+        <li><b>🎨 智能配色引擎与同母色阶继承去重</b>：新建一级大类时自动计算并分配视觉差异最大的高对比不撞色；新建二级子类时自动继承母类基本色并生成同色系梯度色阶矩阵，已占用的色阶自动消掉防止撞色！</li>
+        <li><b>🌅 昨日未录入时段晨间精准补录提醒</b>：每天打开“今天”视图，自动检测前一天（仅前一天）未覆盖的空白时段（如 22:00-24:00），支持在当前页一键补录或“一键记为睡眠”，补满或忽略后提醒窗口自动消失！</li>
+        <li><b>📝 时间块备注自适应多行增高</b>：时间块备注栏升级为自适应多行输入框，输入长文自动随内容增高，不再单行截断。</li>
+      </ul>
+    </div>
+
+    <!-- v1.6.5 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
           <span>v1.6.5</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 移动端响应排版 & 体重两位小数精度 & 全盘模糊计划智能识别版</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
         </div>
         <span class="changelog-date">2026-11-24</span>
       </div>

@@ -12,6 +12,113 @@ const DEFAULT_CATEGORIES = [
   { id: 'other', name: '其他日常琐事', icon: '📌', color: '#94A3B8' }
 ];
 
+// ==========================================
+// 智能色彩引擎 (ColorEngine): 一级高对比选色 & 二级母色阶继承去重
+// ==========================================
+const ColorEngine = {
+  PRIMARY_PALETTE: [
+    '#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6',
+    '#EC4899', '#06B6D4', '#84CC16', '#6366F1', '#F97316',
+    '#14B8A6', '#D946EF', '#0EA5E9', '#EAB308', '#E11D48',
+    '#22C55E', '#A855F7', '#0284C7', '#EA580C', '#64748B'
+  ],
+  hexToRgb(hex) {
+    const clean = (hex || '#3B82F6').replace('#', '');
+    const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
+    const num = parseInt(full, 16);
+    return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+  },
+  hexToHsl(hex) {
+    let { r, g, b } = this.hexToRgb(hex);
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h = 0, s = 0, l = (max + min) / 2;
+    if (max !== min) {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+  },
+  hslToHex(h, s, l) {
+    s /= 100; l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = n => {
+      const k = (n + h / 30) % 12;
+      const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+      return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+  },
+  colorDistance(hexA, hexB) {
+    const a = this.hexToRgb(hexA);
+    const b = this.hexToRgb(hexB);
+    return Math.sqrt(Math.pow(a.r - b.r, 2) * 2 + Math.pow(a.g - b.g, 2) * 4 + Math.pow(a.b - b.b, 2) * 3);
+  },
+  // 自动匹配一个与现有所有一级颜色差别最大的颜色
+  pickDistinctPrimaryColor(excludeHex = null) {
+    const existing = (state && Array.isArray(state.categories) ? state.categories : DEFAULT_CATEGORIES)
+      .filter(c => !c.parentId)
+      .map(c => c.color.toUpperCase());
+    if (excludeHex) existing.push(excludeHex.toUpperCase());
+
+    const candidates = [...this.PRIMARY_PALETTE];
+    for (let h = 0; h < 360; h += 24) {
+      candidates.push(this.hslToHex(h, 76, 50));
+    }
+
+    let bestColor = '#14B8A6';
+    let maxMinDist = -1;
+    candidates.forEach(cand => {
+      const upper = cand.toUpperCase();
+      if (existing.includes(upper)) return;
+      let minDist = Infinity;
+      existing.forEach(ex => {
+        const d = this.colorDistance(upper, ex);
+        if (d < minDist) minDist = d;
+      });
+      if (minDist > maxMinDist) {
+        maxMinDist = minDist;
+        bestColor = upper;
+      }
+    });
+    return bestColor;
+  },
+  // 基于母类基本色生成 6 档明暗渐变色阶 (从浅到深，类似 Office Theme Colors)
+  generateShadePalette(parentHex) {
+    const { h, s } = this.hexToHsl(parentHex);
+    const sat = s < 15 ? s : Math.min(88, Math.max(58, s));
+    const lightnessLevels = [78, 67, 56, 46, 36, 26];
+    return lightnessLevels.map(l => this.hslToHex(h, sat, l));
+  },
+  // 获取某一级母类下尚未被占用的可用色阶（自动消掉母色及兄弟子类已选颜色）
+  getAvailableShadesForParent(parentId) {
+    const cats = state && Array.isArray(state.categories) ? state.categories : [];
+    const parent = cats.find(c => c.id === parentId);
+    if (!parent) return [];
+    const allShades = this.generateShadePalette(parent.color);
+    const siblings = cats.filter(c => c.parentId === parentId);
+    const usedColors = [parent.color, ...siblings.map(s => s.color)].map(x => x.toUpperCase());
+
+    // 过滤掉精确命中或过近的颜色 (RGB 感知距离 < 40 视为已被占用)
+    const available = allShades.filter(shade => {
+      return !usedColors.some(used => used === shade || this.colorDistance(shade, used) < 42);
+    });
+    // 若 6 档全被占满，补充极浅/极深/微调档位兜底，保证依然不撞色
+    if (available.length === 0) {
+      const { h, s } = this.hexToHsl(parent.color);
+      const extra = [84, 72, 61, 51, 41, 31, 21].map(l => this.hslToHex((h + 10) % 360, s, l));
+      return extra.filter(sh => !usedColors.includes(sh));
+    }
+    return available;
+  }
+};
+
 // Storage Adapter Architecture (Local-First + Future Cloud Sync Adapter)
 const StorageAdapter = {
   mode: 'local', // 'local' | 'cloud' (ready for future multi-device sync)
@@ -459,6 +566,9 @@ function initEventListeners() {
   recordModal.addEventListener('click', (e) => {
     if (e.target === recordModal) closeRecordModal();
   });
+  if (inputNote) {
+    inputNote.addEventListener('input', () => autoResizeTextarea(inputNote));
+  }
 
   // Changelog Modal
   const versionBadge = document.getElementById('versionBadge');
@@ -1024,6 +1134,7 @@ function changeDate(daysDelta) {
 
 function updateUI() {
   updateDateHeader();
+  renderYesterdayGapAlert();
   renderTimelineStream();
   renderSpectrumBar();
   updateQuickStats();
@@ -1032,6 +1143,140 @@ function updateUI() {
   } else if (state.activeTab === 'trends') {
     renderTrendsTab();
   }
+}
+
+function getYesterdayString(baseDateStr) {
+  const [y, m, d] = (baseDateStr || getTodayString()).split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() - 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
+function findDayTimeGaps(dateStr, minGapMins = 15) {
+  const list = (state.records[dateStr] || []).slice()
+    .map(r => ({ s: timeToMinutes(r.start), e: timeToMinutes(r.end) }))
+    .filter(item => item.e > item.s)
+    .sort((a, b) => a.s - b.s);
+
+  const merged = [];
+  for (const item of list) {
+    if (merged.length === 0 || item.s > merged[merged.length - 1].e) {
+      merged.push({ s: item.s, e: item.e });
+    } else {
+      merged[merged.length - 1].e = Math.max(merged[merged.length - 1].e, item.e);
+    }
+  }
+
+  const gaps = [];
+  let cursor = 0;
+  for (const iv of merged) {
+    if (iv.s - cursor >= minGapMins) {
+      gaps.push({
+        start: minutesToTime(cursor),
+        end: minutesToTime(iv.s),
+        durationMins: iv.s - cursor
+      });
+    }
+    cursor = Math.max(cursor, iv.e);
+  }
+  if (1440 - cursor >= minGapMins) {
+    gaps.push({
+      start: minutesToTime(cursor),
+      end: '24:00',
+      durationMins: 1440 - cursor
+    });
+  }
+  return gaps;
+}
+
+function renderYesterdayGapAlert() {
+  const container = document.getElementById('yesterdayGapAlertContainer');
+  if (!container) return;
+
+  // 仅在“今天”视图展示，且仅检查前一天（再往前不提醒）
+  const todayStr = getTodayString();
+  if (state.currentDate !== todayStr) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const yestStr = getYesterdayString(todayStr);
+  if (localStorage.getItem('tm_yest_gap_dismissed_' + yestStr) === '1') {
+    container.innerHTML = '';
+    return;
+  }
+
+  const yestRecords = state.records[yestStr] || [];
+  // 昨天没有任何记录时也给出轻量提示；有记录但存在空白段时精确展示空档
+  const gaps = findDayTimeGaps(yestStr, 15);
+  if (gaps.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const isWholeDayEmpty = (yestRecords.length === 0);
+  const gapBtnsHtml = isWholeDayEmpty
+    ? `<button type="button" class="yest-gap-btn" data-start="07:00" data-end="23:59">➕ 补录昨日记录</button>`
+    : gaps.map(g => {
+        const endForInput = g.end === '24:00' ? '23:59' : g.end;
+        const isNightTail = (timeToMinutes(g.start) >= 21 * 60 && g.end === '24:00');
+        return `
+          <button type="button" class="yest-gap-btn" data-start="${g.start}" data-end="${endForInput}">
+            ➕ ${g.start} - ${g.end} (${formatDuration(g.durationMins)})
+          </button>
+          ${isNightTail ? `<button type="button" class="yest-sleep-quick-btn" data-start="${g.start}" data-end="${endForInput}">💤 一键记为睡眠</button>` : ''}
+        `;
+      }).join('');
+
+  container.innerHTML = `
+    <div class="yesterday-gap-card">
+      <div class="yesterday-gap-header">
+        <div class="yesterday-gap-title">
+          <span>🌅 昨日 (${yestStr.slice(5)}) 待补录时段</span>
+          <span class="yesterday-gap-badge">${isWholeDayEmpty ? '全天未记' : `尚缺 ${gaps.length} 段`}</span>
+        </div>
+        <button type="button" id="btnDismissYesterdayGap" class="yesterday-gap-dismiss" title="忽略昨日提醒，不再打扰">✕ 忽略</button>
+      </div>
+      <div class="yesterday-gap-desc">
+        ${isWholeDayEmpty ? '昨日全天暂无时间块记录，点击下方补录或直接忽略：' : '睡前等未记时段可直接点击下方补录，补满或忽略后此窗口自动消失：'}
+      </div>
+      <div class="yesterday-gap-actions">
+        ${gapBtnsHtml}
+      </div>
+    </div>
+  `;
+
+  const dismissBtn = container.querySelector('#btnDismissYesterdayGap');
+  if (dismissBtn) {
+    dismissBtn.addEventListener('click', () => {
+      localStorage.setItem('tm_yest_gap_dismissed_' + yestStr, '1');
+      container.innerHTML = '';
+      showToast('已忽略昨日补录提醒');
+    });
+  }
+
+  container.querySelectorAll('.yest-gap-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openRecordModal(null, btn.dataset.start, btn.dataset.end, yestStr);
+    });
+  });
+
+  container.querySelectorAll('.yest-sleep-quick-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!state.records[yestStr]) state.records[yestStr] = [];
+      const sleepCat = state.categories.find(c => !c.parentId && (c.id === 'sleep' || c.name.includes('睡'))) || state.categories[0];
+      state.records[yestStr].push({
+        id: 'rec_' + Date.now(),
+        category: sleepCat ? sleepCat.id : 'sleep',
+        start: btn.dataset.start,
+        end: btn.dataset.end,
+        note: '晨间一键补录昨日夜间睡眠'
+      });
+      saveRecords();
+      updateUI();
+      showToast(`💤 已将昨日 ${btn.dataset.start}-${btn.dataset.end} 记为睡眠！`);
+    });
+  });
 }
 
 function updateDateHeader() {
@@ -1045,14 +1290,22 @@ function updateDateHeader() {
 
 function renderCategoryChips() {
   categoryChipsContainer.innerHTML = '';
-  state.categories.forEach(cat => {
+  const subWrapper = document.getElementById('subCategoryChipsWrapper');
+
+  const primaries = state.categories.filter(c => !c.parentId);
+  const selectedObj = state.categories.find(c => c.id === state.selectedCategory) || primaries[0];
+  const activeParentId = selectedObj ? (selectedObj.parentId || selectedObj.id) : null;
+
+  primaries.forEach(cat => {
+    const subCount = state.categories.filter(c => c.parentId === cat.id).length;
+    const isParentActive = (cat.id === activeParentId);
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = `category-chip-btn ${state.selectedCategory === cat.id ? 'selected' : ''}`;
+    btn.className = `category-chip-btn ${isParentActive ? 'selected' : ''}`;
     btn.style.color = cat.color;
     btn.innerHTML = `
       <span style="font-size: 1.25rem;">${cat.icon}</span>
-      <span>${cat.name}</span>
+      <span>${cat.name}${subCount > 0 ? `<span class="chip-sub-count">${subCount}</span>` : ''}</span>
     `;
     btn.addEventListener('click', () => {
       state.selectedCategory = cat.id;
@@ -1060,6 +1313,48 @@ function renderCategoryChips() {
     });
     categoryChipsContainer.appendChild(btn);
   });
+
+  // 若当前高亮的一级大类下有二级细分，展开二级联动胶囊栏
+  if (subWrapper) {
+    const subs = activeParentId ? state.categories.filter(c => c.parentId === activeParentId) : [];
+    const parentCat = primaries.find(p => p.id === activeParentId);
+    if (subs.length > 0 && parentCat) {
+      subWrapper.style.display = 'block';
+      subWrapper.innerHTML = `
+        <div class="sub-chips-label">↳ 「${parentCat.icon} ${escapeHtml(parentCat.name)}」细分活动：</div>
+        <div class="sub-chips-list"></div>
+      `;
+      const listEl = subWrapper.querySelector('.sub-chips-list');
+
+      // 通用母类兜底按钮
+      const generalBtn = document.createElement('button');
+      generalBtn.type = 'button';
+      generalBtn.className = `sub-chip-btn ${state.selectedCategory === parentCat.id ? 'selected' : ''}`;
+      generalBtn.style.setProperty('--chip-color', parentCat.color);
+      generalBtn.innerHTML = `<span>${parentCat.icon} 通用</span>`;
+      generalBtn.addEventListener('click', () => {
+        state.selectedCategory = parentCat.id;
+        renderCategoryChips();
+      });
+      listEl.appendChild(generalBtn);
+
+      subs.forEach(sub => {
+        const sBtn = document.createElement('button');
+        sBtn.type = 'button';
+        sBtn.className = `sub-chip-btn ${state.selectedCategory === sub.id ? 'selected' : ''}`;
+        sBtn.style.setProperty('--chip-color', sub.color);
+        sBtn.innerHTML = `<span>${sub.icon} ${escapeHtml(sub.name)}</span>`;
+        sBtn.addEventListener('click', () => {
+          state.selectedCategory = sub.id;
+          renderCategoryChips();
+        });
+        listEl.appendChild(sBtn);
+      });
+    } else {
+      subWrapper.style.display = 'none';
+      subWrapper.innerHTML = '';
+    }
+  }
 }
 
 function getTodayRecords() {
@@ -1111,6 +1406,7 @@ function createRecordElement(rec) {
   const cat = state.categories.find(c => c.id === rec.category) || {
     name: '未命名', icon: '📌', color: '#94A3B8'
   };
+  const parentCat = cat.parentId ? state.categories.find(c => c.id === cat.parentId) : null;
   const durationText = formatDuration(rec.start, rec.end);
 
   const card = document.createElement('div');
@@ -1124,7 +1420,10 @@ function createRecordElement(rec) {
     <div class="timeline-divider-line" style="background-color: ${cat.color};"></div>
     <div class="timeline-item-body">
       <div class="timeline-item-title-row">
-        <span class="timeline-item-title">${cat.icon} ${cat.name}</span>
+        <span class="timeline-item-title">
+          ${cat.icon} ${escapeHtml(cat.name)}
+          ${parentCat ? `<span class="timeline-parent-tag" style="color: ${parentCat.color}; background: ${parentCat.color}14;">${escapeHtml(parentCat.name)}</span>` : ''}
+        </span>
         <span class="timeline-item-category" style="background: ${cat.color}18; color: ${cat.color};">
           ${cat.isWaster ? '⚠️ 摸鱼消耗' : (cat.isProductive ? '✨ 高效专注' : '日常')}
         </span>
@@ -1247,19 +1546,24 @@ function updateQuickStats() {
 }
 
 // Modal handling
-function openRecordModal(existingRecord = null, defaultStart = null, defaultEnd = null) {
+function openRecordModal(existingRecord = null, defaultStart = null, defaultEnd = null, targetDate = null) {
   const btnDeleteInModal = document.getElementById('btnDeleteRecordInModal');
   const btnSubmitRecord = document.getElementById('btnSubmitRecord');
+  const activeTargetDate = targetDate || state.currentDate;
+  state.editingTargetDate = activeTargetDate;
+  const isCrossDay = (activeTargetDate !== state.currentDate);
 
   if (existingRecord) {
     state.editingRecordId = existingRecord.id;
-    modalTitle.textContent = `修改记录 (${existingRecord.start} - ${existingRecord.end})`;
+    modalTitle.textContent = isCrossDay
+      ? `补改昨日 (${activeTargetDate.slice(5)}) 记录`
+      : `修改记录 (${existingRecord.start} - ${existingRecord.end})`;
     if (btnSubmitRecord) btnSubmitRecord.textContent = '✓ 保存修改';
     if (btnDeleteInModal) {
       btnDeleteInModal.style.display = 'block';
       btnDeleteInModal.onclick = () => {
         if (confirm(`确定删除 ${existingRecord.start} - ${existingRecord.end} 的记录吗？`)) {
-          deleteRecord(existingRecord.id);
+          deleteRecord(existingRecord.id, activeTargetDate);
           closeRecordModal();
           showToast('已删除该记录');
         }
@@ -1271,8 +1575,14 @@ function openRecordModal(existingRecord = null, defaultStart = null, defaultEnd 
     inputNote.value = existingRecord.note || '';
   } else {
     state.editingRecordId = null;
-    modalTitle.textContent = '记录新时间块';
-    if (btnSubmitRecord) btnSubmitRecord.textContent = '✓ 确定保存时间块';
+    modalTitle.textContent = isCrossDay
+      ? `🌅 补录昨日 (${activeTargetDate.slice(5)}) 时间块`
+      : '记录新时间块';
+    if (btnSubmitRecord) {
+      btnSubmitRecord.textContent = isCrossDay
+        ? `✓ 保存到昨日 (${activeTargetDate.slice(5)})`
+        : '✓ 确定保存时间块';
+    }
     if (btnDeleteInModal) btnDeleteInModal.style.display = 'none';
     state.selectedCategory = state.categories[0] ? state.categories[0].id : 'phone';
 
@@ -1281,8 +1591,8 @@ function openRecordModal(existingRecord = null, defaultStart = null, defaultEnd 
       inputEndTime.value = defaultEnd;
     } else {
       // 智能识别：接续上一个结束时间作为开始时间；结束时间自动对齐手机当下真实时间！
-      const records = getTodayRecords().slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
-      const isViewingToday = (state.currentDate === getTodayString());
+      const records = (state.records[activeTargetDate] || []).slice().sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+      const isViewingToday = (activeTargetDate === getTodayString());
       const now = new Date();
       const nowStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const nowMins = timeToMinutes(nowStr);
@@ -1316,11 +1626,16 @@ function openRecordModal(existingRecord = null, defaultStart = null, defaultEnd 
 
   renderCategoryChips();
   recordModal.classList.add('open');
+  if (inputNote) {
+    inputNote.style.height = 'auto';
+    setTimeout(() => autoResizeTextarea(inputNote), 15);
+  }
 }
 
 function closeRecordModal() {
   recordModal.classList.remove('open');
   state.editingRecordId = null;
+  state.editingTargetDate = null;
 }
 
 function handleSaveRecord() {
@@ -1338,11 +1653,12 @@ function handleSaveRecord() {
     return;
   }
 
-  if (!state.records[state.currentDate]) {
-    state.records[state.currentDate] = [];
+  const targetDate = state.editingTargetDate || state.currentDate;
+  if (!state.records[targetDate]) {
+    state.records[targetDate] = [];
   }
 
-  const list = state.records[state.currentDate];
+  const list = state.records[targetDate];
 
   if (state.editingRecordId) {
     const idx = list.findIndex(r => r.id === state.editingRecordId);
@@ -1366,14 +1682,19 @@ function handleSaveRecord() {
     list.push(newRecord);
   }
 
+  const isCrossDay = (targetDate !== state.currentDate);
   saveRecords();
   closeRecordModal();
   updateUI();
+  if (isCrossDay) {
+    showToast(`✅ 已成功补录至昨日 (${targetDate.slice(5)})！`);
+  }
 }
 
-function deleteRecord(recordId) {
-  if (!state.records[state.currentDate]) return;
-  state.records[state.currentDate] = state.records[state.currentDate].filter(r => r.id !== recordId);
+function deleteRecord(recordId, targetDate = null) {
+  const dKey = targetDate || state.currentDate;
+  if (!state.records[dKey]) return;
+  state.records[dKey] = state.records[dKey].filter(r => r.id !== recordId);
   saveRecords();
   updateUI();
 }
@@ -3971,8 +4292,28 @@ function saveCategories() {
   updateUI();
 }
 
+let selectedShadeHex = null;
+let categoryAddPanelBound = false;
+
 function openCategoryModal() {
   renderCategoryEditList();
+  refreshCategoryAddPanel();
+  if (!categoryAddPanelBound) {
+    categoryAddPanelBound = true;
+    const parentSel = document.getElementById('newCatParentId');
+    const autoBtn = document.getElementById('btnAutoPickColor');
+    if (parentSel) {
+      parentSel.addEventListener('change', () => updateCategoryColorModeUI());
+    }
+    if (autoBtn) {
+      autoBtn.addEventListener('click', () => {
+        const colorInp = document.getElementById('newCatColor');
+        if (colorInp) {
+          colorInp.value = ColorEngine.pickDistinctPrimaryColor(colorInp.value);
+        }
+      });
+    }
+  }
   const modal = document.getElementById('categoryModal');
   if (modal) modal.classList.add('open');
 }
@@ -3982,21 +4323,99 @@ function closeCategoryModal() {
   if (modal) modal.classList.remove('open');
 }
 
+function refreshCategoryAddPanel(presetParentId = null) {
+  const parentSel = document.getElementById('newCatParentId');
+  if (!parentSel) return;
+  const currentVal = presetParentId !== null ? presetParentId : parentSel.value;
+  parentSel.innerHTML = '<option value="">📁 作为顶级一级大类</option>';
+  state.categories.filter(c => !c.parentId).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `↳ 隶属「${p.icon} ${p.name}」`;
+    parentSel.appendChild(opt);
+  });
+  if (currentVal && state.categories.some(c => c.id === currentVal && !c.parentId)) {
+    parentSel.value = currentVal;
+  } else {
+    parentSel.value = '';
+  }
+  updateCategoryColorModeUI();
+}
+
+function updateCategoryColorModeUI() {
+  const parentSel = document.getElementById('newCatParentId');
+  const primaryRow = document.getElementById('newCatPrimaryColorRow');
+  const shadeRow = document.getElementById('newCatShadeRow');
+  const shadePalette = document.getElementById('newCatShadePalette');
+  const colorInp = document.getElementById('newCatColor');
+  const prodInp = document.getElementById('newCatIsProductive');
+  const wasteInp = document.getElementById('newCatIsWaster');
+
+  if (!parentSel || !primaryRow || !shadeRow || !shadePalette) return;
+
+  const parentId = parentSel.value;
+  if (!parentId) {
+    // 一级大类模式：自动匹配高对比不撞色颜色
+    primaryRow.style.display = 'flex';
+    shadeRow.style.display = 'none';
+    selectedShadeHex = null;
+    if (colorInp) {
+      colorInp.value = ColorEngine.pickDistinctPrimaryColor();
+    }
+  } else {
+    // 二级子类模式：隐藏自由取色，展示同母色渐变色阶矩阵，自动消掉已占用色阶
+    primaryRow.style.display = 'none';
+    shadeRow.style.display = 'block';
+    const parent = state.categories.find(c => c.id === parentId);
+    if (parent) {
+      if (prodInp) prodInp.checked = !!parent.isProductive;
+      if (wasteInp) wasteInp.checked = !!parent.isWaster;
+    }
+
+    const availableShades = ColorEngine.getAvailableShadesForParent(parentId);
+    shadePalette.innerHTML = '';
+
+    if (availableShades.length === 0) {
+      shadePalette.innerHTML = '<span style="font-size: 0.75rem; color: #EF4444;">该分类色阶已全部用完</span>';
+      selectedShadeHex = parent ? parent.color : '#3B82F6';
+    } else {
+      selectedShadeHex = availableShades[0];
+      availableShades.forEach((hex, idx) => {
+        const swatch = document.createElement('button');
+        swatch.type = 'button';
+        swatch.className = `shade-swatch-btn ${idx === 0 ? 'selected' : ''}`;
+        swatch.style.backgroundColor = hex;
+        swatch.title = `选择同色系色阶 ${hex}`;
+        swatch.addEventListener('click', () => {
+          selectedShadeHex = hex;
+          shadePalette.querySelectorAll('.shade-swatch-btn').forEach(b => b.classList.remove('selected'));
+          swatch.classList.add('selected');
+        });
+        shadePalette.appendChild(swatch);
+      });
+    }
+  }
+}
+
 function renderCategoryEditList() {
   const container = document.getElementById('categoryEditList');
   if (!container) return;
   container.innerHTML = '';
 
-  state.categories.forEach((cat, index) => {
+  const primaries = state.categories.filter(c => !c.parentId);
+
+  const renderCategoryItemRow = (cat, isSub = false) => {
     const item = document.createElement('div');
-    item.className = 'category-edit-item';
+    item.className = `category-edit-item ${isSub ? 'sub-category-item' : ''}`;
     item.innerHTML = `
       <div class="category-edit-left">
-        <span style="font-size: 1.25rem;">${cat.icon}</span>
+        ${isSub ? '<span class="sub-tree-branch">↳</span>' : ''}
+        <span style="font-size: ${isSub ? '1.05rem' : '1.25rem'};">${cat.icon}</span>
         <div class="category-edit-dot" style="background-color: ${cat.color};"></div>
         <input type="text" class="category-edit-input" value="${escapeHtml(cat.name)}" title="点击可就地改名">
       </div>
       <div class="category-edit-actions">
+        ${!isSub ? '<button type="button" class="category-add-sub-btn" title="在此分类下新增二级细分">+ 子类</button>' : ''}
         <span style="font-size: 0.7rem; color: ${cat.isWaster ? '#EF4444' : (cat.isProductive ? '#10B981' : '#94A3B8')}; font-weight: 600;">
           ${cat.isWaster ? '摸鱼' : (cat.isProductive ? '专注' : '日常')}
         </span>
@@ -4010,42 +4429,70 @@ function renderCategoryEditList() {
       if (val) {
         cat.name = val;
         saveCategories();
+        refreshCategoryAddPanel();
         showToast(`已重命名为「${val}」`);
       }
     });
 
+    const addSubBtn = item.querySelector('.category-add-sub-btn');
+    if (addSubBtn) {
+      addSubBtn.addEventListener('click', () => {
+        refreshCategoryAddPanel(cat.id);
+        const nameInp = document.getElementById('newCatName');
+        if (nameInp) {
+          nameInp.placeholder = `输入「${cat.name}」的二级细分名称...`;
+          nameInp.focus();
+          nameInp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    }
+
     const delBtn = item.querySelector('.category-del-btn');
     delBtn.addEventListener('click', () => {
-      if (state.categories.length <= 1) {
-        alert('至少保留一个活动分类！');
+      if (!isSub && primaries.length <= 1) {
+        alert('至少保留一个顶级活动大类！');
         return;
       }
-      if (confirm(`确定删除分类「${cat.name}」吗？`)) {
-        state.categories.splice(index, 1);
-        if (state.selectedCategory === cat.id) {
+      const subCount = isSub ? 0 : state.categories.filter(c => c.parentId === cat.id).length;
+      const confirmMsg = subCount > 0
+        ? `确定删除一级分类「${cat.name}」及其下的 ${subCount} 个二级细分吗？`
+        : `确定删除分类「${cat.name}」吗？`;
+
+      if (confirm(confirmMsg)) {
+        state.categories = state.categories.filter(c => c.id !== cat.id && c.parentId !== cat.id);
+        if (!state.categories.some(c => c.id === state.selectedCategory)) {
           state.selectedCategory = state.categories[0].id;
         }
         saveCategories();
         renderCategoryEditList();
+        refreshCategoryAddPanel();
         renderTimelineStream();
         showToast('已删除分类');
       }
     });
 
     container.appendChild(item);
+  };
+
+  primaries.forEach(pCat => {
+    renderCategoryItemRow(pCat, false);
+    const subs = state.categories.filter(c => c.parentId === pCat.id);
+    subs.forEach(sCat => renderCategoryItemRow(sCat, true));
   });
 }
 
 function handleAddNewCategory() {
+  const parentSel = document.getElementById('newCatParentId');
   const nameInp = document.getElementById('newCatName');
   const iconInp = document.getElementById('newCatIcon');
   const colorInp = document.getElementById('newCatColor');
   const prodInp = document.getElementById('newCatIsProductive');
   const wasteInp = document.getElementById('newCatIsWaster');
 
+  const parentId = parentSel ? parentSel.value : '';
   const name = nameInp ? nameInp.value.trim() : '';
-  const icon = (iconInp && iconInp.value.trim()) ? iconInp.value.trim() : '✨';
-  const color = colorInp ? colorInp.value : '#3B82F6';
+  const icon = (iconInp && iconInp.value.trim()) ? iconInp.value.trim() : (parentId ? '🔖' : '✨');
+  const color = parentId ? (selectedShadeHex || '#3B82F6') : (colorInp ? colorInp.value : ColorEngine.pickDistinctPrimaryColor());
   const isProductive = prodInp ? prodInp.checked : false;
   const isWaster = wasteInp ? wasteInp.checked : false;
 
@@ -4056,20 +4503,30 @@ function handleAddNewCategory() {
   }
 
   const newId = 'cat_' + Date.now().toString(36);
-  state.categories.push({
+  const newObj = {
     id: newId,
     name: name,
     icon: icon,
     color: color,
     isProductive: isProductive,
     isWaster: isWaster
-  });
+  };
+  if (parentId) {
+    newObj.parentId = parentId;
+    const parent = state.categories.find(c => c.id === parentId);
+    if (parent) {
+      newObj.isProductive = !!parent.isProductive;
+      newObj.isWaster = !!parent.isWaster;
+    }
+  }
 
+  state.categories.push(newObj);
   saveCategories();
   renderCategoryEditList();
+  refreshCategoryAddPanel(parentId);
 
   if (nameInp) nameInp.value = '';
-  showToast(`已新增分类「${icon} ${name}」`);
+  showToast(`已新增${parentId ? '二级细分' : '一级大类'}「${icon} ${name}」`);
 }
 
 function handleResetDefaultCategories() {
@@ -4078,6 +4535,7 @@ function handleResetDefaultCategories() {
     state.selectedCategory = state.categories[0].id;
     saveCategories();
     renderCategoryEditList();
+    refreshCategoryAddPanel('');
     showToast('已恢复预设分类');
   }
 }

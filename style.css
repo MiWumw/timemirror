@@ -2118,3 +2118,204 @@ body {
     grid-template-columns: repeat(6, 1fr) !important;
   }
 }
+
+/* ========================================== */
+/* 🌅 昨日待补录提醒卡片 & 一二级活动类型 / 色阶选择器 */
+/* ========================================== */
+.yesterday-gap-card {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 1.5px solid #FCD34D;
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.12);
+}
+
+.yesterday-gap-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.yesterday-gap-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #92400E;
+  flex-wrap: wrap;
+}
+
+.yesterday-gap-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #B45309;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid #FBBF24;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+}
+
+.yesterday-gap-dismiss {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid #FDE68A;
+  color: #B45309;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.yesterday-gap-desc {
+  font-size: 0.75rem;
+  color: #92400E;
+  opacity: 0.88;
+  margin-bottom: 8px;
+}
+
+.yesterday-gap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.yest-gap-btn, .yest-sleep-quick-btn {
+  background: #FFFFFF;
+  border: 1px solid #F59E0B;
+  color: #B45309;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.yest-sleep-quick-btn {
+  background: #EEF2FF;
+  border-color: #818CF8;
+  color: #4338CA;
+}
+
+.yest-gap-btn:active, .yest-sleep-quick-btn:active {
+  transform: scale(0.97);
+}
+
+/* 二级活动类型联动胶囊 */
+.chip-sub-count {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 0.65rem;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: currentColor;
+  color: #fff;
+  opacity: 0.85;
+  vertical-align: middle;
+}
+
+.sub-category-chips-wrapper {
+  margin-top: 8px;
+  margin-bottom: 12px;
+  padding: 9px 10px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-md);
+}
+
+.sub-chips-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.sub-chips-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sub-chip-btn {
+  background: #FFFFFF;
+  border: 1.5px solid #E2E8F0;
+  color: var(--text-main);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sub-chip-btn.selected {
+  border-color: var(--chip-color, var(--primary));
+  background: color-mix(in srgb, var(--chip-color, var(--primary)) 12%, white);
+  color: var(--chip-color, var(--primary));
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.timeline-parent-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 99px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+/* 分类管理：树状缩进 & 色阶选择矩阵 */
+.sub-category-item {
+  margin-left: 20px;
+  background: #F8FAFC !important;
+  border-left: 3px solid #CBD5E1;
+}
+
+.sub-tree-branch {
+  color: var(--text-light);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.category-add-sub-btn {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #2563EB;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.shade-palette-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.shade-swatch-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 2px solid rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.shade-swatch-btn.selected {
+  border: 2.5px solid #0F172A;
+  transform: scale(1.14);
+  box-shadow: 0 0 0 2px #FFFFFF, 0 2px 8px rgba(0, 0, 0, 0.25);
+}

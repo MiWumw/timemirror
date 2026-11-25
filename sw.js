@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v165-weight-overflow-plan-fuzzy';
+const CACHE_NAME = 'timemirror-v170-subcategories-yest-gap-smart-color';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.6.5',
-  './app.js?v=1.6.5',
+  './style.css?v=1.7.0',
+  './app.js?v=1.7.0',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

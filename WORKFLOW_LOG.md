@@ -6,6 +6,17 @@
 
 ---
 
+## [2026-11-25 19:50] 任务：v1.7.0 二级细分体系 & 智能配色引擎 & 昨日缺口晨间补录版落地
+- **决策来源**：用户 4 项新产品需求（多行备注、昨日空白晨间补录提醒、二级活动类型、智能防撞色与母色阶继承）
+- **改动文件清单**：
+  - `fs/timemirror/index.html`: `#inputNote` 升级为 `<textarea>`；新增 `#yesterdayGapAlertContainer`、`#subCategoryChipsWrapper` 与分类管理一二级切换及色阶选择面板；版本徽章与更新日志升级至 `v1.7.0`；
+  - `fs/timemirror/app.js`: 新增 `ColorEngine`（高对比主色匹配与 6 档同母色阶去重）、`renderYesterdayGapAlert()` 与跨日 `editingTargetDate` 保存、`renderCategoryChips()` 二级联动、分类管理树状增删改；
+  - `fs/timemirror/style.css`: 新增昨日补录提醒卡片、二级联动胶囊、树状缩进列表及色阶选择器样式；
+  - `fs/timemirror/sw.js`: 缓存升级至 `timemirror-v170-subcategories-yest-gap-smart-color`。
+- **验证结果**：`node -c app.js` 语法检测 100% 通过，已推送 GitHub `main`。
+
+---
+
 ## [2026-11-24 10:35] 任务：v1.6.5 移动端响应排版 & 体重两位小数精度 & 全盘模糊计划智能识别全量落地
 - **决策来源**：用户移动端实机使用痛点反馈（计划拉取提示暂无、按钮溢出屏幕、体重输入 50.25 变成 2550 与截断 50.3）
 - **改动文件清单**：
