@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.6.4">
+  <link rel="stylesheet" href="style.css?v=1.7.2">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.7.1</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.7.2</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -707,15 +707,27 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.7.1 Current -->
+    <!-- v1.7.2 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
-          <span>v1.7.1</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 昨日提醒热修复与渲染隔离保护版</span>
+          <span>v1.7.2</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 彻底破除静态资源强缓存版</span>
         </div>
         <span class="changelog-date">2026-11-25</span>
       </div>
+      <ul class="changelog-list">
+        <li><b>🚀 修复脚本缓存版本号滞后问题</b>：将 <code>app.js</code> 与 <code>style.css</code> 引用参数由滞后的 <code>?v=1.6.4</code> 同步升级为 <code>?v=1.7.2</code>，强制手机端立即拉取最新修复后的主脚本，彻底消灭旧版脚本导致的今日视图崩溃与昨日数据残留假象。</li>
+      </ul>
+    </div>
+
+    <!-- v1.7.1 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
+          <span>v1.7.1</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
+        </div>
       <ul class="changelog-list">
         <li><b>🛡️ 修复昨日补录提醒导致的界面渲染中断</b>：修复 <code>formatDuration</code> 传参类型不兼容导致的异常，全面恢复时间流与统计展示（原有本地数据完整无损）；并为昨日提醒模块添加异常隔离保护，绝不影响主时间流渲染。</li>
       </ul>
@@ -1147,6 +1159,6 @@
 
   </div>
 
-  <script src="app.js?v=1.6.4"></script>
+  <script src="app.js?v=1.7.2"></script>
 </body>
 </html>

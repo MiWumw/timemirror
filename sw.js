@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v171-fix-gap-format-duration';
+const CACHE_NAME = 'timemirror-v172-cache-bust';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.7.1',
-  './app.js?v=1.7.1',
+  './style.css?v=1.7.2',
+  './app.js?v=1.7.2',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
