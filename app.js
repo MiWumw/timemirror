@@ -429,10 +429,15 @@ function minutesToTime(mins) {
 
 // Format duration in readable Chinese
 function formatDuration(startStr, endStr) {
-  const m1 = timeToMinutes(startStr);
-  const m2 = timeToMinutes(endStr);
-  let diff = m2 - m1;
-  if (diff < 0) diff += 1440;
+  let diff = 0;
+  if (typeof startStr === 'number' && endStr === undefined) {
+    diff = startStr;
+  } else {
+    const m1 = timeToMinutes(startStr);
+    const m2 = timeToMinutes(endStr);
+    diff = m2 - m1;
+    if (diff < 0) diff += 1440;
+  }
   const hours = Math.floor(diff / 60);
   const mins = diff % 60;
   if (hours > 0 && mins > 0) return `${hours}小时${mins}分`;
@@ -1134,7 +1139,11 @@ function changeDate(daysDelta) {
 
 function updateUI() {
   updateDateHeader();
-  renderYesterdayGapAlert();
+  try {
+    renderYesterdayGapAlert();
+  } catch (e) {
+    console.warn('renderYesterdayGapAlert error:', e);
+  }
   renderTimelineStream();
   renderSpectrumBar();
   updateQuickStats();
@@ -1222,7 +1231,7 @@ function renderYesterdayGapAlert() {
         const isNightTail = (timeToMinutes(g.start) >= 21 * 60 && g.end === '24:00');
         return `
           <button type="button" class="yest-gap-btn" data-start="${g.start}" data-end="${endForInput}">
-            ➕ ${g.start} - ${g.end} (${formatDuration(g.durationMins)})
+            ➕ ${g.start} - ${g.end} (${formatDuration(g.start, g.end)})
           </button>
           ${isNightTail ? `<button type="button" class="yest-sleep-quick-btn" data-start="${g.start}" data-end="${endForInput}">💤 一键记为睡眠</button>` : ''}
         `;

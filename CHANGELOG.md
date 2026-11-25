@@ -4,6 +4,15 @@
 
 ---
 
+## 🚀 [v1.7.1] - 2026-11-25 · 昨日提醒热修复与渲染隔离保护版
+
+### 🔧 紧急修复 (Hotfix)
+1. **🛡️ 修复昨日补录提醒导致的界面渲染中断**：
+   - 修复 `renderYesterdayGapAlert` 调用 `formatDuration(g.durationMins)` 时参数类型不匹配导致 `timeToMinutes` 报错中断 `updateUI` 的问题；
+   - 让 `formatDuration` 同时兼容 `(startStr, endStr)` 与单数字分钟数传参，并在 `updateUI()` 中对 `renderYesterdayGapAlert()` 添加异常隔离保护，确保主时间流与已记录数据永远正常显示。
+
+---
+
 ## 🚀 [v1.7.0] - 2026-11-25 · 二级细分体系 & 智能配色引擎 & 昨日缺口晨间补录版
 
 ### 🌟 核心架构突破与新功能发布 (Major Enhancements)
