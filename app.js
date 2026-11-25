@@ -187,32 +187,82 @@ const DEFAULT_WINNER_TRIALS = {
 };
 
 // ==========================================
-// 📚 四阶段修学进度游标管理器 (LearningCursorManager v1.8.0)
+// 📚 四阶段修学进度游标管理器 (LearningCursorManager v1.9.0)
+// 每个阶段独立持有 { cur, total, unit, enabled }
 // ==========================================
 const LEARNING_STAGES = [
-  { key: 'video', label: '视频课', icon: '🎬', color: '#3B82F6' },
-  { key: 'note', label: '整理笔记', icon: '📝', color: '#10B981' },
-  { key: 'recite', label: '背诵/Anki', icon: '🧠', color: '#8B5CF6' },
-  { key: 'share', label: '分享/复述', icon: '🗣️', color: '#F59E0B' }
+  { key: 'video', label: '视频课', icon: '🎬', color: '#3B82F6', defaultUnit: '集' },
+  { key: 'note', label: '整理笔记', icon: '📝', color: '#10B981', defaultUnit: '篇' },
+  { key: 'recite', label: '背诵/Anki', icon: '🧠', color: '#8B5CF6', defaultUnit: '张' },
+  { key: 'share', label: '分享/复述', icon: '🗣️', color: '#F59E0B', defaultUnit: '次' }
 ];
 
 const DEFAULT_LEARNING_CURSORS = {
-  version: 1,
+  version: 2,
   courses: [
-    { id: 'course_hdnj', name: '黄帝内经', icon: '📖', total: 81, unit: '集', archived: false, updatedAt: '2026-11-25T14:00:00Z', stages: { video: 19, note: 12, recite: 10, share: 0 } },
-    { id: 'course_zjdc', name: '针灸大成', icon: '🪡', total: 81, unit: '集', archived: false, updatedAt: '2026-11-25T12:00:00Z', stages: { video: 50, note: 48, recite: 45, share: 0 } },
-    { id: 'course_zhuangzi', name: '庄子', icon: '🕯️', total: 21, unit: '篇', archived: false, updatedAt: '2026-11-18T10:00:00Z', stages: { video: 5, note: 3, recite: 0, share: 0 } },
-    { id: 'course_ziwei', name: '紫微斗数', icon: '🌌', total: 14, unit: '讲', archived: false, updatedAt: '2026-11-18T10:00:00Z', stages: { video: 4, note: 2, recite: 0, share: 0 } }
+    {
+      id: 'course_hdnj', name: '黄帝内经', icon: '📖', archived: false, updatedAt: '2026-11-25T14:00:00Z',
+      stages: {
+        video: { cur: 19, total: 81, unit: '集', enabled: true },
+        note: { cur: 12, total: 30, unit: '篇', enabled: true },
+        recite: { cur: 10, total: 100, unit: '张', enabled: true },
+        share: { cur: 0, total: 10, unit: '次', enabled: false }
+      }
+    },
+    {
+      id: 'course_zjdc', name: '针灸大成', icon: '🪡', archived: false, updatedAt: '2026-11-25T12:00:00Z',
+      stages: {
+        video: { cur: 50, total: 81, unit: '集', enabled: true },
+        note: { cur: 10, total: 12, unit: '篇', enabled: true },
+        recite: { cur: 45, total: 120, unit: '张', enabled: true },
+        share: { cur: 0, total: 10, unit: '次', enabled: false }
+      }
+    }
   ],
   dailyLogs: {}
 };
 
 const LearningCursorManager = {
+  normalizeCourse(c) {
+    if (!c) return c;
+    const legacyTotal = Number(c.total) || 30;
+    const normStages = {};
+    LEARNING_STAGES.forEach(st => {
+      const raw = c.stages ? c.stages[st.key] : undefined;
+      if (raw && typeof raw === 'object') {
+        normStages[st.key] = {
+          cur: Math.max(0, Number(raw.cur) || 0),
+          total: Math.max(1, Number(raw.total) || legacyTotal),
+          unit: (raw.unit || st.defaultUnit).trim(),
+          enabled: raw.enabled !== false
+        };
+      } else {
+        const val = Math.max(0, Number(raw) || 0);
+        normStages[st.key] = {
+          cur: val,
+          total: st.key === 'video' ? legacyTotal : (st.key === 'note' ? Math.max(12, Math.round(legacyTotal / 3)) : (st.key === 'recite' ? 100 : 10)),
+          unit: st.key === 'video' ? (c.unit || st.defaultUnit) : st.defaultUnit,
+          enabled: st.key === 'share' ? (val > 0) : true
+        };
+      }
+    });
+    return {
+      ...c,
+      stages: normStages
+    };
+  },
   getData() {
     let data = StorageAdapter.load('learning_cursors', null);
     if (!data || !Array.isArray(data.courses)) {
       data = JSON.parse(JSON.stringify(DEFAULT_LEARNING_CURSORS));
       this.saveData(data);
+    } else {
+      let migrated = false;
+      data.courses = data.courses.map(c => {
+        if (!c.stages || typeof c.stages.video !== 'object') migrated = true;
+        return this.normalizeCourse(c);
+      });
+      if (migrated) this.saveData(data);
     }
     if (!data.dailyLogs) data.dailyLogs = {};
     return data;
@@ -226,31 +276,29 @@ const LearningCursorManager = {
   getArchivedCourses() {
     return this.getData().courses.filter(c => c.archived);
   },
-  addCourse(name, total = 30, unit = '集', icon = '📘') {
+  saveOrUpdateCourse(courseObj) {
     const data = this.getData();
-    const newCourse = {
-      id: 'course_' + Date.now().toString(36),
-      name: name.trim(),
-      icon: (icon || '📘').trim(),
-      total: Math.max(1, parseInt(total, 10) || 30),
-      unit: (unit || '集').trim(),
-      archived: false,
-      updatedAt: new Date().toISOString(),
-      stages: { video: 0, note: 0, recite: 0, share: 0 }
-    };
-    data.courses.unshift(newCourse);
+    const norm = this.normalizeCourse({
+      ...courseObj,
+      updatedAt: new Date().toISOString()
+    });
+    const idx = data.courses.findIndex(c => c.id === norm.id);
+    if (idx !== -1) {
+      data.courses[idx] = norm;
+    } else {
+      data.courses.unshift(norm);
+    }
     this.saveData(data);
-    return newCourse;
+    return norm;
   },
   updateCourse(courseId, fields) {
     const data = this.getData();
     const c = data.courses.find(item => item.id === courseId);
     if (!c) return null;
     if (fields.name !== undefined) c.name = fields.name.trim();
-    if (fields.total !== undefined) c.total = Math.max(1, parseInt(fields.total, 10) || c.total);
-    if (fields.unit !== undefined) c.unit = fields.unit.trim() || '集';
     if (fields.icon !== undefined) c.icon = fields.icon.trim() || '📘';
     if (fields.archived !== undefined) c.archived = !!fields.archived;
+    if (fields.stages !== undefined) c.stages = fields.stages;
     c.updatedAt = new Date().toISOString();
     this.saveData(data);
     return c;
@@ -264,35 +312,41 @@ const LearningCursorManager = {
     const data = this.getData();
     const c = data.courses.find(item => item.id === courseId);
     if (!c) return null;
-    if (!c.stages) c.stages = { video: 0, note: 0, recite: 0, share: 0 };
+    const norm = this.normalizeCourse(c);
+    const stObj = norm.stages[stageKey];
+    if (!stObj) return null;
 
-    const prevVal = Number(c.stages[stageKey] || 0);
+    const prevVal = Number(stObj.cur || 0);
     let nextVal = isAbsolute ? Number(valueOrDelta) : (prevVal + Number(valueOrDelta));
     if (isNaN(nextVal)) nextVal = prevVal;
-    nextVal = Math.max(0, Math.min(c.total || 9999, nextVal));
+    nextVal = Math.max(0, Math.min(stObj.total || 9999, nextVal));
 
-    c.stages[stageKey] = nextVal;
-    c.updatedAt = new Date().toISOString();
+    stObj.cur = nextVal;
+    stObj.enabled = true;
+    norm.updatedAt = new Date().toISOString();
+
+    const idx = data.courses.findIndex(item => item.id === courseId);
+    if (idx !== -1) data.courses[idx] = norm;
 
     const dKey = dateStr || (state ? state.currentDate : getTodayString());
     const delta = nextVal - prevVal;
     if (delta !== 0) {
       if (!data.dailyLogs[dKey]) data.dailyLogs[dKey] = [];
       data.dailyLogs[dKey].push({
-        courseId: c.id,
-        courseName: c.name,
+        courseId: norm.id,
+        courseName: norm.name,
         stage: stageKey,
         fromVal: prevVal,
         toVal: nextVal,
         delta: delta,
-        total: c.total,
-        unit: c.unit || '集',
+        total: stObj.total,
+        unit: stObj.unit || '集',
         timestamp: new Date().toISOString()
       });
     }
 
     this.saveData(data);
-    return { course: c, prevVal, nextVal, delta };
+    return { course: norm, stageObj: stObj, prevVal, nextVal, delta };
   },
   getTodayDeltaForCourseStage(dateStr, courseId, stageKey) {
     const logs = (this.getData().dailyLogs || {})[dateStr] || [];
@@ -897,17 +951,17 @@ function initEventListeners() {
       const current = (state.plans[state.currentDate] || '').trim();
       let newPlan = '';
       if (!current) {
-        newPlan = '### 🎯 晨起立志（核心三要务）\n- [ ] 1. \n- [ ] 2. \n- [ ] 3. \n\n### ⚡ 进阶待办（自由选做）\n- [ ] ';
+        newPlan = '### 🌤️ 今日怎么做（上午 / 下午大致方向）\n- 上午：\n- 下午：\n- 晚上：\n\n### 🎯 今日尽量完成\n- [ ] 1. \n- [ ] 2. \n- [ ] 3. ';
       } else {
         newPlan = current + '\n- [ ] ';
       }
       state.plans[state.currentDate] = newPlan;
       inputDailyPlan.value = newPlan;
+      state.planViewMode = 'raw';
+      localStorage.setItem('tm_plan_view_mode', 'raw');
       handlePlanInput();
       renderDailyPlanSection();
-      if (state.planViewMode === 'raw') {
-        inputDailyPlan.focus();
-      }
+      inputDailyPlan.focus();
     });
   }
 
@@ -1528,14 +1582,14 @@ function renderRecordCursorLinkBox() {
 
   const selectedCourse = activeCourses.find(c => c.id === recordCursorLinkState.courseId) || null;
   if (selectedCourse) {
-    const curVal = Number((selectedCourse.stages && selectedCourse.stages[recordCursorLinkState.stage]) || 0);
-    recordCursorLinkState.targetVal = Math.min(selectedCourse.total, curVal + 1);
+    const stObj = selectedCourse.stages[recordCursorLinkState.stage] || { cur: 0, total: 30, unit: '集' };
+    recordCursorLinkState.targetVal = Math.min(stObj.total, (stObj.cur || 0) + 1);
   }
 
   box.style.display = 'block';
   const courseOptions = activeCourses.map(c => {
-    const stVal = Number((c.stages && c.stages[recordCursorLinkState.stage]) || 0);
-    return `<option value="${c.id}" ${recordCursorLinkState.courseId === c.id ? 'selected' : ''}>${c.icon || '📘'} ${escapeHtml(c.name)} (当前 ${stVal}/${c.total}${c.unit || '集'})</option>`;
+    const stObj = c.stages[recordCursorLinkState.stage] || { cur: 0, total: 30, unit: '集' };
+    return `<option value="${c.id}" ${recordCursorLinkState.courseId === c.id ? 'selected' : ''}>${c.icon || '📘'} ${escapeHtml(c.name)} (当前 ${stObj.cur}/${stObj.total}${stObj.unit})</option>`;
   }).join('');
 
   const stageChipsHtml = LEARNING_STAGES.map(st => `
@@ -1543,6 +1597,8 @@ function renderRecordCursorLinkBox() {
       ${st.icon} ${st.label}
     </button>
   `).join('');
+
+  const selStObj = selectedCourse ? (selectedCourse.stages[recordCursorLinkState.stage] || { cur: 0, total: 30, unit: '集' }) : null;
 
   box.innerHTML = `
     <div class="record-cursor-link-header">
@@ -1552,15 +1608,15 @@ function renderRecordCursorLinkBox() {
         ${courseOptions}
       </select>
     </div>
-    ${selectedCourse ? `
+    ${selectedCourse && selStObj ? `
       <div class="record-cursor-link-body">
         <div class="link-stage-row">${stageChipsHtml}</div>
         <div class="link-target-row">
           <span style="font-size:0.75rem;color:var(--text-muted);">推进至第</span>
           <button type="button" class="cursor-step-btn" id="btnLinkTargetDec">−</button>
-          <input type="number" id="inputLinkTargetVal" class="link-target-input" value="${recordCursorLinkState.targetVal}" min="0" max="${selectedCourse.total}">
+          <input type="number" id="inputLinkTargetVal" class="link-target-input" value="${recordCursorLinkState.targetVal}" min="0" max="${selStObj.total}">
           <button type="button" class="cursor-step-btn" id="btnLinkTargetInc">+</button>
-          <span style="font-size:0.75rem;color:var(--text-muted);">/ ${selectedCourse.total}${selectedCourse.unit || '集'}</span>
+          <span style="font-size:0.75rem;color:var(--text-muted);">/ ${selStObj.total}${selStObj.unit}</span>
         </div>
       </div>
     ` : ''}
@@ -1578,8 +1634,8 @@ function renderRecordCursorLinkBox() {
     btn.addEventListener('click', () => {
       recordCursorLinkState.stage = btn.dataset.stage;
       if (selectedCourse) {
-        const cur = Number((selectedCourse.stages && selectedCourse.stages[recordCursorLinkState.stage]) || 0);
-        recordCursorLinkState.targetVal = Math.min(selectedCourse.total, cur + 1);
+        const stObj = selectedCourse.stages[recordCursorLinkState.stage] || { cur: 0, total: 30 };
+        recordCursorLinkState.targetVal = Math.min(stObj.total, (stObj.cur || 0) + 1);
       }
       renderRecordCursorLinkBox();
     });
@@ -1588,23 +1644,23 @@ function renderRecordCursorLinkBox() {
   const decBtn = box.querySelector('#btnLinkTargetDec');
   const incBtn = box.querySelector('#btnLinkTargetInc');
   const numInp = box.querySelector('#inputLinkTargetVal');
-  if (decBtn && numInp && selectedCourse) {
+  if (decBtn && numInp && selectedCourse && selStObj) {
     decBtn.addEventListener('click', () => {
       const v = Math.max(0, (parseInt(numInp.value, 10) || 0) - 1);
       numInp.value = v;
       recordCursorLinkState.targetVal = v;
     });
   }
-  if (incBtn && numInp && selectedCourse) {
+  if (incBtn && numInp && selectedCourse && selStObj) {
     incBtn.addEventListener('click', () => {
-      const v = Math.min(selectedCourse.total, (parseInt(numInp.value, 10) || 0) + 1);
+      const v = Math.min(selStObj.total, (parseInt(numInp.value, 10) || 0) + 1);
       numInp.value = v;
       recordCursorLinkState.targetVal = v;
     });
   }
-  if (numInp && selectedCourse) {
+  if (numInp && selectedCourse && selStObj) {
     numInp.addEventListener('change', () => {
-      const v = Math.max(0, Math.min(selectedCourse.total, parseInt(numInp.value, 10) || 0));
+      const v = Math.max(0, Math.min(selStObj.total, parseInt(numInp.value, 10) || 0));
       numInp.value = v;
       recordCursorLinkState.targetVal = v;
     });
@@ -1924,13 +1980,14 @@ function handleSaveRecord() {
     );
     if (advRes) {
       const stMeta = LEARNING_STAGES.find(s => s.key === recordCursorLinkState.stage) || { label: '' };
-      const tagStr = `《${advRes.course.name}》${stMeta.label} (${advRes.nextVal}/${advRes.course.total})`;
+      const stObj = advRes.stageObj;
+      const tagStr = `《${advRes.course.name}》${stMeta.label} (${advRes.nextVal}/${stObj.total}${stObj.unit})`;
       if (!note) {
         note = tagStr;
       } else if (!note.includes(advRes.course.name)) {
         note = `${tagStr} · ${note}`;
       }
-      cursorAdvanceMsg = `📚 已同步推进《${advRes.course.name}》至 ${advRes.nextVal}/${advRes.course.total}`;
+      cursorAdvanceMsg = `📚 已同步推进《${advRes.course.name}》至 ${advRes.nextVal}/${stObj.total}${stObj.unit}`;
     }
   }
   if (!state.records[targetDate]) {
@@ -3184,61 +3241,147 @@ function renderWinnerTrials() {
 }
 
 // ==========================================
-// 📚 入口 B：修学进度游标看板渲染与交互
+// 📚 入口 B：修学进度游标看板渲染与高自由度增删改弹窗 (v1.9.0)
 // ==========================================
 let learningCursorsBound = false;
+let editingCourseIdInModal = null;
+
+function openCourseEditModal(courseId = null) {
+  const modal = document.getElementById('courseEditModal');
+  const titleEl = document.getElementById('courseModalTitle');
+  const iconInp = document.getElementById('editCourseIcon');
+  const nameInp = document.getElementById('editCourseName');
+  const stagesListEl = document.getElementById('courseStagesConfigList');
+  const delBtn = document.getElementById('btnDeleteCourseInModal');
+  if (!modal || !stagesListEl) return;
+
+  const existing = courseId ? LearningCursorManager.getData().courses.find(c => c.id === courseId) : null;
+  editingCourseIdInModal = existing ? existing.id : null;
+
+  if (existing) {
+    titleEl.textContent = `✏️ 编辑课程《${existing.name}》`;
+    if (iconInp) iconInp.value = existing.icon || '📘';
+    if (nameInp) nameInp.value = existing.name || '';
+    if (delBtn) delBtn.style.display = 'block';
+  } else {
+    titleEl.textContent = '📚 新增修学课程';
+    if (iconInp) iconInp.value = '📘';
+    if (nameInp) nameInp.value = '';
+    if (delBtn) delBtn.style.display = 'none';
+  }
+
+  stagesListEl.innerHTML = LEARNING_STAGES.map(st => {
+    const stObj = (existing && existing.stages && existing.stages[st.key])
+      ? existing.stages[st.key]
+      : { cur: 0, total: st.key === 'video' ? 30 : (st.key === 'note' ? 12 : (st.key === 'recite' ? 100 : 10)), unit: st.defaultUnit, enabled: st.key !== 'share' };
+
+    return `
+      <div class="course-stage-cfg-row" data-stage="${st.key}">
+        <label class="course-stage-cfg-toggle">
+          <input type="checkbox" class="cfg-st-enabled" ${stObj.enabled ? 'checked' : ''}>
+          <span>${st.icon} ${st.label}</span>
+        </label>
+        <div class="course-stage-cfg-inputs">
+          <div class="cfg-num-group">
+            <span>当前</span>
+            <input type="number" class="text-input cfg-st-cur" value="${stObj.cur}" min="0">
+          </div>
+          <span style="color:var(--text-light);">/</span>
+          <div class="cfg-num-group">
+            <span>共</span>
+            <input type="number" class="text-input cfg-st-total" value="${stObj.total}" min="1">
+          </div>
+          <input type="text" class="text-input cfg-st-unit" value="${escapeHtml(stObj.unit || st.defaultUnit)}" maxlength="3" placeholder="单位" title="如：集/篇/张/次">
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  modal.classList.add('open');
+  if (!existing && nameInp) {
+    setTimeout(() => nameInp.focus(), 100);
+  }
+}
+
+function closeCourseEditModal() {
+  const modal = document.getElementById('courseEditModal');
+  if (modal) modal.classList.remove('open');
+  editingCourseIdInModal = null;
+}
+
 function bindLearningCursorsControls() {
   if (learningCursorsBound) return;
   learningCursorsBound = true;
 
   const btnAdd = document.getElementById('btnToggleAddCourse');
-  const box = document.getElementById('addCourseInlineBox');
-  const btnCancel = document.getElementById('btnCancelAddCourse');
-  const btnSubmit = document.getElementById('btnSubmitAddCourse');
   const btnArchived = document.getElementById('btnToggleArchivedCourses');
   const archivedBox = document.getElementById('archivedCoursesContainer');
 
-  if (btnAdd && box) {
-    btnAdd.addEventListener('click', () => {
-      box.style.display = box.style.display === 'none' ? 'block' : 'none';
-      if (box.style.display === 'block') {
-        const nameInp = document.getElementById('newCourseName');
-        if (nameInp) nameInp.focus();
-      }
-    });
-  }
-  if (btnCancel && box) {
-    btnCancel.addEventListener('click', () => { box.style.display = 'none'; });
-  }
-  if (btnSubmit && box) {
-    btnSubmit.addEventListener('click', () => {
-      const nameInp = document.getElementById('newCourseName');
-      const totalInp = document.getElementById('newCourseTotal');
-      const unitInp = document.getElementById('newCourseUnit');
-      const iconInp = document.getElementById('newCourseIcon');
-      const name = nameInp ? nameInp.value.trim() : '';
-      if (!name) {
-        alert('请输入修学课程名称！');
-        if (nameInp) nameInp.focus();
-        return;
-      }
-      LearningCursorManager.addCourse(
-        name,
-        totalInp ? totalInp.value : 30,
-        unitInp ? unitInp.value : '集',
-        iconInp ? iconInp.value : '📘'
-      );
-      if (nameInp) nameInp.value = '';
-      box.style.display = 'none';
-      renderLearningCursorsSection();
-      showToast(`📚 已新增修学课程「${name}」`);
-    });
+  if (btnAdd) {
+    btnAdd.addEventListener('click', () => openCourseEditModal(null));
   }
   if (btnArchived && archivedBox) {
     btnArchived.addEventListener('click', () => {
       const isHidden = archivedBox.style.display === 'none';
       archivedBox.style.display = isHidden ? 'block' : 'none';
       btnArchived.textContent = isHidden ? '📦 收起归档' : '📦 归档库';
+    });
+  }
+
+  const courseModal = document.getElementById('courseEditModal');
+  const closeBtn = document.getElementById('courseModalCloseBtn');
+  const saveBtn = document.getElementById('btnSaveCourseInModal');
+  const delBtn = document.getElementById('btnDeleteCourseInModal');
+
+  if (closeBtn) closeBtn.addEventListener('click', closeCourseEditModal);
+  if (courseModal) {
+    courseModal.addEventListener('click', (e) => {
+      if (e.target === courseModal) closeCourseEditModal();
+    });
+  }
+  if (delBtn) {
+    delBtn.addEventListener('click', () => {
+      if (!editingCourseIdInModal) return;
+      const c = LearningCursorManager.getData().courses.find(x => x.id === editingCourseIdInModal);
+      if (c && confirm(`确定永久删除修学课程《${c.name}》吗？`)) {
+        LearningCursorManager.deleteCourse(c.id);
+        closeCourseEditModal();
+        renderLearningCursorsSection();
+        showToast(`🗑️ 已删除课程《${c.name}》`);
+      }
+    });
+  }
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      const nameInp = document.getElementById('editCourseName');
+      const iconInp = document.getElementById('editCourseIcon');
+      const name = nameInp ? nameInp.value.trim() : '';
+      if (!name) {
+        alert('请输入课程名称！');
+        if (nameInp) nameInp.focus();
+        return;
+      }
+      const stages = {};
+      document.querySelectorAll('#courseStagesConfigList .course-stage-cfg-row').forEach(row => {
+        const key = row.dataset.stage;
+        const enabled = row.querySelector('.cfg-st-enabled').checked;
+        const cur = Math.max(0, parseInt(row.querySelector('.cfg-st-cur').value, 10) || 0);
+        const total = Math.max(1, parseInt(row.querySelector('.cfg-st-total').value, 10) || 1);
+        const unit = row.querySelector('.cfg-st-unit').value.trim() || '集';
+        stages[key] = { cur: Math.min(cur, total), total, unit, enabled };
+      });
+
+      const isEdit = !!editingCourseIdInModal;
+      LearningCursorManager.saveOrUpdateCourse({
+        id: editingCourseIdInModal || ('course_' + Date.now().toString(36)),
+        name,
+        icon: (iconInp && iconInp.value.trim()) ? iconInp.value.trim() : '📘',
+        archived: false,
+        stages
+      });
+      closeCourseEditModal();
+      renderLearningCursorsSection();
+      showToast(isEdit ? `✅ 已更新《${name}》` : `📚 已新增修学课程《${name}》`);
     });
   }
 }
@@ -3259,29 +3402,38 @@ function renderLearningCursorsSection() {
   }
 
   if (activeCourses.length === 0) {
-    container.innerHTML = `<div style="font-size:0.78rem;color:var(--text-muted);padding:12px 6px;text-align:center;">暂无在学课程，点击右上角【+ 新增课程】建立你的四阶段进度游标！</div>`;
+    container.innerHTML = `<div style="font-size:0.78rem;color:var(--text-muted);padding:14px 6px;text-align:center;">暂无在学课程，点击右上角【+ 新增课程】建立你的四阶段进度游标！</div>`;
   } else {
     container.innerHTML = activeCourses.map(course => {
-      const stagesHtml = LEARNING_STAGES.map(st => {
-        const curVal = Number((course.stages && course.stages[st.key]) || 0);
-        const total = Math.max(1, Number(course.total) || 1);
+      const enabledStages = LEARNING_STAGES.filter(st => course.stages[st.key]?.enabled !== false);
+      const stagesHtml = enabledStages.map(st => {
+        const stObj = course.stages[st.key] || { cur: 0, total: 30, unit: st.defaultUnit };
+        const curVal = Number(stObj.cur || 0);
+        const total = Math.max(1, Number(stObj.total) || 1);
+        const unit = stObj.unit || st.defaultUnit;
         const pct = Math.min(100, Math.round((curVal / total) * 100));
         const todayDelta = LearningCursorManager.getTodayDeltaForCourseStage(dStr, course.id, st.key);
-        const deltaBadge = todayDelta > 0 ? `<span class="cursor-today-delta">+${todayDelta}</span>` : '';
+        const deltaBadge = todayDelta > 0 ? `<span class="cursor-today-delta">今日+${todayDelta}</span>` : '';
 
         return `
-          <div class="cursor-stage-row">
-            <div class="cursor-stage-label">
-              <span>${st.icon} ${st.label}</span>
-              ${deltaBadge}
+          <div class="cursor-stage-block">
+            <div class="cursor-stage-top">
+              <div class="cursor-stage-label">
+                <span>${st.icon} ${st.label}</span>
+                ${deltaBadge}
+              </div>
+              <button type="button" class="cursor-val-pill" data-cid="${course.id}" data-stage="${st.key}" title="点击直接输入进度">
+                <b>${curVal}</b> / ${total} ${escapeHtml(unit)}
+              </button>
             </div>
-            <div class="cursor-progress-track">
-              <div class="cursor-progress-fill" style="width: ${pct}%; background-color: ${st.color};"></div>
-            </div>
-            <div class="cursor-stage-ctrl">
-              <button type="button" class="cursor-step-btn btn-cursor-dec" data-cid="${course.id}" data-stage="${st.key}" title="回退 1">−</button>
-              <span class="cursor-val-text" data-cid="${course.id}" data-stage="${st.key}" title="点击直接输入集数">${curVal}/${total}</span>
-              <button type="button" class="cursor-step-btn btn-cursor-inc" data-cid="${course.id}" data-stage="${st.key}" title="推进 +1">+1</button>
+            <div class="cursor-stage-bottom">
+              <div class="cursor-progress-track">
+                <div class="cursor-progress-fill" style="width: ${pct}%; background-color: ${st.color};"></div>
+              </div>
+              <div class="cursor-stage-ctrl">
+                <button type="button" class="cursor-step-btn btn-cursor-dec" data-cid="${course.id}" data-stage="${st.key}" title="回退 1">−</button>
+                <button type="button" class="cursor-step-btn btn-cursor-inc" data-cid="${course.id}" data-stage="${st.key}" title="推进 +1">+1</button>
+              </div>
             </div>
           </div>
         `;
@@ -3292,22 +3444,22 @@ function renderLearningCursorsSection() {
           <div class="learning-course-header">
             <div class="learning-course-title">
               <span>${course.icon || '📘'} ${escapeHtml(course.name)}</span>
-              <span class="learning-course-meta">共 ${course.total}${course.unit || '集'}</span>
             </div>
             <div class="learning-course-actions">
-              <button type="button" class="zhixing-tool-btn btn-course-edit" data-cid="${course.id}" title="修改课程名或总集数">✏️</button>
+              <button type="button" class="zhixing-tool-btn btn-course-edit" data-cid="${course.id}" title="修改课程、各阶段总数与单位">✏️ 编辑</button>
               <button type="button" class="zhixing-tool-btn btn-course-archive" data-cid="${course.id}" title="已学完归档">📦 归档</button>
+              <button type="button" class="zhixing-tool-btn btn-course-del-active" data-cid="${course.id}" style="color:#EF4444;" title="删除课程">🗑️</button>
             </div>
           </div>
           <div class="learning-stages-list">
-            ${stagesHtml}
+            ${stagesHtml || '<div style="font-size:0.75rem;color:var(--text-light);">未启用任何阶段，点击右上角 ✏️ 编辑开启</div>'}
           </div>
         </div>
       `;
     }).join('');
   }
 
-  // 绑定步进、直接设值、编辑与归档事件
+  // 绑定步进、直接设值、编辑、归档与删除事件
   container.querySelectorAll('.btn-cursor-inc').forEach(btn => {
     btn.addEventListener('click', () => {
       const res = LearningCursorManager.advanceStage(btn.dataset.cid, btn.dataset.stage, 1, false, dStr);
@@ -3315,7 +3467,7 @@ function renderLearningCursorsSection() {
         if (navigator.vibrate) navigator.vibrate(25);
         renderLearningCursorsSection();
         const stMeta = LEARNING_STAGES.find(s => s.key === btn.dataset.stage);
-        showToast(`📚 《${res.course.name}》${stMeta.label} 推进至 ${res.nextVal}/${res.course.total}`);
+        showToast(`📚 《${res.course.name}》${stMeta.label} 推进至 ${res.nextVal}/${res.stageObj.total}${res.stageObj.unit}`);
       }
     });
   });
@@ -3327,14 +3479,15 @@ function renderLearningCursorsSection() {
     });
   });
 
-  container.querySelectorAll('.cursor-val-text').forEach(span => {
-    span.addEventListener('click', () => {
-      const cid = span.dataset.cid;
-      const stage = span.dataset.stage;
+  container.querySelectorAll('.cursor-val-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cid = btn.dataset.cid;
+      const stage = btn.dataset.stage;
       const c = LearningCursorManager.getData().courses.find(x => x.id === cid);
       if (!c) return;
+      const stObj = c.stages[stage];
       const stMeta = LEARNING_STAGES.find(s => s.key === stage);
-      const input = prompt(`设定《${c.name}》${stMeta.label}当前进度 (0 ~ ${c.total})：`, c.stages[stage] || 0);
+      const input = prompt(`设定《${c.name}》${stMeta.label}当前进度 (0 ~ ${stObj.total}${stObj.unit})：`, stObj.cur || 0);
       if (input !== null && input.trim() !== '') {
         const num = parseInt(input.trim(), 10);
         if (!isNaN(num)) {
@@ -3346,20 +3499,7 @@ function renderLearningCursorsSection() {
   });
 
   container.querySelectorAll('.btn-course-edit').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const c = LearningCursorManager.getData().courses.find(x => x.id === btn.dataset.cid);
-      if (!c) return;
-      const newName = prompt('修改课程名称：', c.name);
-      if (newName === null) return;
-      const newTotal = prompt(`修改《${newName || c.name}》总集数/章数：`, c.total);
-      if (newTotal === null) return;
-      LearningCursorManager.updateCourse(c.id, {
-        name: newName.trim() || c.name,
-        total: parseInt(newTotal, 10) || c.total
-      });
-      renderLearningCursorsSection();
-      showToast('已更新课程信息');
-    });
+    btn.addEventListener('click', () => openCourseEditModal(btn.dataset.cid));
   });
 
   container.querySelectorAll('.btn-course-archive').forEach(btn => {
@@ -3374,6 +3514,18 @@ function renderLearningCursorsSection() {
     });
   });
 
+  container.querySelectorAll('.btn-course-del-active').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const c = LearningCursorManager.getData().courses.find(x => x.id === btn.dataset.cid);
+      if (!c) return;
+      if (confirm(`确定删除课程《${c.name}》吗？`)) {
+        LearningCursorManager.deleteCourse(c.id);
+        renderLearningCursorsSection();
+        showToast(`🗑️ 已删除课程《${c.name}》`);
+      }
+    });
+  });
+
   // 渲染已归档课程
   if (archivedBox) {
     if (archivedCourses.length === 0) {
@@ -3383,7 +3535,7 @@ function renderLearningCursorsSection() {
         <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;">📦 已归档修学课程 (${archivedCourses.length})</div>
         ${archivedCourses.map(ac => `
           <div class="archived-course-row">
-            <span>${ac.icon || '📘'} <b>${escapeHtml(ac.name)}</b> (${ac.total}${ac.unit || '集'})</span>
+            <span>${ac.icon || '📘'} <b>${escapeHtml(ac.name)}</b></span>
             <div style="display:flex;gap:6px;">
               <button type="button" class="zhixing-tool-btn btn-course-restore" data-cid="${ac.id}">↩️ 恢复</button>
               <button type="button" class="zhixing-tool-btn btn-course-del" data-cid="${ac.id}" style="color:#EF4444;">🗑️</button>
@@ -3431,47 +3583,73 @@ function renderHabitsManageList() {
   const cfg = HabitManager.getHabits();
   let html = '';
 
-  // 🟢 保底线列表
-  html += `
-    <div style="font-size: 0.8rem; font-weight: 700; color: #047857; margin-bottom: 4px;">🟢 保底线（基础步，做完即全天成功）</div>
+  const buildItemHtml = (h, type, idx, total) => `
+    <div class="habit-manage-item">
+      <div class="habit-manage-info" style="flex:1;min-width:0;">
+        <span class="habit-manage-name">${escapeHtml(h.name)}</span>
+        ${h.desc ? `<span class="habit-manage-desc">${escapeHtml(h.desc)}</span>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <button type="button" class="cat-move-btn btn-move-habit" data-type="${type}" data-idx="${idx}" data-dir="-1" ${idx === 0 ? 'disabled' : ''} title="上移">↑</button>
+        <button type="button" class="cat-move-btn btn-move-habit" data-type="${type}" data-idx="${idx}" data-dir="1" ${idx === total - 1 ? 'disabled' : ''} title="下移">↓</button>
+        <button type="button" class="zhixing-tool-btn btn-edit-habit" data-id="${h.id}" title="编辑名称与描述" style="padding:4px 8px;">✏️</button>
+        <button type="button" class="btn-delete-habit" data-id="${h.id}" title="删除该微步" style="padding:4px 8px;">🗑️</button>
+      </div>
+    </div>
   `;
+
+  // 🟢 保底线列表
+  html += `<div style="font-size: 0.8rem; font-weight: 700; color: #047857; margin-bottom: 4px;">🟢 保底线（基础步，做完即全天成功）</div>`;
   if (cfg.baseline.length === 0) {
     html += `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">暂无保底步</div>`;
   } else {
-    cfg.baseline.forEach(h => {
-      html += `
-        <div class="habit-manage-item">
-          <div class="habit-manage-info">
-            <span class="habit-manage-name">${escapeHtml(h.name)}</span>
-            ${h.desc ? `<span class="habit-manage-desc">${escapeHtml(h.desc)}</span>` : ''}
-          </div>
-          <button type="button" class="btn-delete-habit" data-id="${h.id}" title="删除该微步">✕</button>
-        </div>
-      `;
-    });
+    cfg.baseline.forEach((h, i) => { html += buildItemHtml(h, 'baseline', i, cfg.baseline.length); });
   }
 
   // 🟡 进阶项列表
-  html += `
-    <div style="font-size: 0.8rem; font-weight: 700; color: #B45309; margin-top: 10px; margin-bottom: 4px;">🟡 进阶项（加分步，根据精力选做）</div>
-  `;
+  html += `<div style="font-size: 0.8rem; font-weight: 700; color: #B45309; margin-top: 10px; margin-bottom: 4px;">🟡 进阶项（加分步，根据精力选做）</div>`;
   if (cfg.advanced.length === 0) {
     html += `<div style="font-size: 0.75rem; color: var(--text-muted);">暂无进阶步</div>`;
   } else {
-    cfg.advanced.forEach(h => {
-      html += `
-        <div class="habit-manage-item">
-          <div class="habit-manage-info">
-            <span class="habit-manage-name">${escapeHtml(h.name)}</span>
-            ${h.desc ? `<span class="habit-manage-desc">${escapeHtml(h.desc)}</span>` : ''}
-          </div>
-          <button type="button" class="btn-delete-habit" data-id="${h.id}" title="删除该微步">✕</button>
-        </div>
-      `;
-    });
+    cfg.advanced.forEach((h, i) => { html += buildItemHtml(h, 'advanced', i, cfg.advanced.length); });
   }
 
   container.innerHTML = html;
+
+  // 绑定排序按钮
+  container.querySelectorAll('.btn-move-habit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      const idx = parseInt(btn.dataset.idx, 10);
+      const dir = parseInt(btn.dataset.dir, 10);
+      const list = type === 'advanced' ? cfg.advanced : cfg.baseline;
+      const targetIdx = idx + dir;
+      if (targetIdx < 0 || targetIdx >= list.length) return;
+      const tmp = list[idx];
+      list[idx] = list[targetIdx];
+      list[targetIdx] = tmp;
+      HabitManager.saveConfig(cfg);
+      renderHabitsManageList();
+      renderHabitsSection();
+    });
+  });
+
+  // 绑定编辑按钮
+  container.querySelectorAll('.btn-edit-habit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      const item = cfg.baseline.find(x => x.id === id) || cfg.advanced.find(x => x.id === id);
+      if (!item) return;
+      const newName = prompt('修改打卡项名称：', item.name);
+      if (newName === null || !newName.trim()) return;
+      const newDesc = prompt('修改简要说明（留空表示不显示说明）：', item.desc || '');
+      if (newDesc === null) return;
+      HabitManager.updateHabit(id, { name: newName.trim(), desc: newDesc.trim() });
+      renderHabitsManageList();
+      renderHabitsSection();
+      showToast(`✅ 已更新「${newName.trim()}」`);
+    });
+  });
 
   // 绑定删除按钮
   container.querySelectorAll('.btn-delete-habit').forEach(btn => {
@@ -4520,23 +4698,27 @@ const StateMerger = {
     if (!cloud || !Array.isArray(cloud.courses)) return local;
     if (!local || !Array.isArray(local.courses)) return cloud;
     const map = new Map();
-    cloud.courses.forEach(c => { if (c && c.id) map.set(c.id, JSON.parse(JSON.stringify(c))); });
-    local.courses.forEach(lc => {
-      if (!lc || !lc.id) return;
+    cloud.courses.forEach(c => { if (c && c.id) map.set(c.id, LearningCursorManager.normalizeCourse(c)); });
+    local.courses.forEach(lcRaw => {
+      if (!lcRaw || !lcRaw.id) return;
+      const lc = LearningCursorManager.normalizeCourse(lcRaw);
       if (!map.has(lc.id)) {
-        map.set(lc.id, JSON.parse(JSON.stringify(lc)));
+        map.set(lc.id, lc);
       } else {
         const cc = map.get(lc.id);
         const lTime = new Date(lc.updatedAt || 0).getTime();
         const cTime = new Date(cc.updatedAt || 0).getTime();
         const winner = lTime >= cTime ? lc : cc;
         const other = lTime >= cTime ? cc : lc;
-        const mergedStages = {
-          video: Math.max(Number(winner.stages?.video || 0), Number(other.stages?.video || 0)),
-          note: Math.max(Number(winner.stages?.note || 0), Number(other.stages?.note || 0)),
-          recite: Math.max(Number(winner.stages?.recite || 0), Number(other.stages?.recite || 0)),
-          share: Math.max(Number(winner.stages?.share || 0), Number(other.stages?.share || 0))
-        };
+        const mergedStages = {};
+        LEARNING_STAGES.forEach(st => {
+          const wSt = winner.stages[st.key];
+          const oSt = other.stages[st.key];
+          mergedStages[st.key] = {
+            ...wSt,
+            cur: Math.max(Number(wSt.cur || 0), Number(oSt.cur || 0))
+          };
+        });
         map.set(lc.id, { ...winner, stages: mergedStages });
       }
     });

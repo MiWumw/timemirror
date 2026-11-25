@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.8.0">
+  <link rel="stylesheet" href="style.css?v=1.9.0">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.8.0</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.9.0</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -263,12 +263,31 @@
           </div>
         </div>
         <div class="zhixing-desc">
-          顺应今日身心气能，每日核心要务不超过 3 件（打勾即时自动持久化，直通 Obsidian 晨起立志）
+          自由规划今日上午/下午方向与尽量完成的要务（打勾或源码编辑即时保存，直通 Obsidian 晨起立志）
         </div>
         <!-- 动态交互式 Checkbox 清单容器 -->
         <div id="planChecklistContainer" class="plan-checklist-container"></div>
         <!-- 源码编辑多行文本框 (默认按模式显隐) -->
-        <textarea id="inputDailyPlan" class="fullscreen-textarea" style="display: none;" placeholder="### 🎯 晨起立志（核心三要务）&#10;- [ ] 1. 核心要务一&#10;- [ ] 2. 核心要务二&#10;- [ ] 3. 核心要务三"></textarea>
+        <textarea id="inputDailyPlan" class="fullscreen-textarea" style="display: none;" placeholder="### 🌤️ 今日怎么做（上午 / 下午大致方向）&#10;- 上午：&#10;- 下午：&#10;&#10;### 🎯 今日尽量完成&#10;- [ ] 1. &#10;- [ ] 2. "></textarea>
+      </div>
+
+      <!-- 紧接今日计划：践行微步 · 极简身心分级打卡 (保底线与进阶项 · 自由增删改排) -->
+      <div class="zhixing-card" id="habitCard">
+        <div class="zhixing-card-header">
+          <div class="zhixing-title">
+            <span>🥋 践行微步 · 分级打卡</span>
+            <span id="habitBaseBadge" class="auto-save-tag" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;">待完成保底</span>
+          </div>
+          <div class="zhixing-actions">
+            <button type="button" id="btn-manage-habits" class="zhixing-tool-btn" title="自由增删改排微步习惯">⚙️ 编排</button>
+          </div>
+        </div>
+        <div class="zhixing-desc">
+          与今日计划合为晨起立志双翼：做完不可失败的基础步即算全天成功；状态充沛时自由加分（直通 Obsidian 第二部分）
+        </div>
+
+        <!-- 动态挂载容器 -->
+        <div id="habits-dynamic-container"></div>
       </div>
 
       <!-- 第二段：实际执行 · 暮夜对账 -->
@@ -300,25 +319,6 @@
             <canvas id="reviewPieChart"></canvas>
           </div>
         </div>
-      </div>
-
-      <!-- 践行微步 · 极简身心分级打卡 (保底线与进阶项 · 动态自适应) -->
-      <div class="zhixing-card" id="habitCard">
-        <div class="zhixing-card-header">
-          <div class="zhixing-title">
-            <span>🥋 践行微步 · 分级打卡</span>
-            <span id="habitBaseBadge" class="auto-save-tag" style="background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0;">待完成保底</span>
-          </div>
-          <div class="zhixing-actions">
-            <button type="button" id="btn-manage-habits" class="zhixing-tool-btn" title="编排与增删微步习惯">⚙️ 编排</button>
-          </div>
-        </div>
-        <div class="zhixing-desc">
-          做完不可失败的基础步即算全天成功；状态充沛时自由加分，轻松无负担（直通 Obsidian 第二部分）
-        </div>
-
-        <!-- 动态挂载容器 -->
-        <div id="habits-dynamic-container"></div>
       </div>
 
       <!-- 🎯 连赢 6 次 · 胜者神经试验场 (缩战场·做标记·6次重塑大脑突触) -->
@@ -353,20 +353,7 @@
           </div>
         </div>
         <div class="zhixing-desc">
-          新课看视频、旧课整笔记、碎片刷 Anki 多线并行；学完可一键归档，进度实时同步云端游标卡
-        </div>
-        <!-- 内联新增课程面板 -->
-        <div id="addCourseInlineBox" class="add-course-inline-box" style="display: none;">
-          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-            <input type="text" id="newCourseIcon" class="text-input" style="width: 46px; text-align: center; padding: 6px;" value="📘" maxlength="2" title="图标">
-            <input type="text" id="newCourseName" class="text-input" style="flex: 2; padding: 6px 10px;" placeholder="课程名 (如：高等数学)">
-            <input type="number" id="newCourseTotal" class="text-input" style="width: 68px; padding: 6px 8px;" placeholder="总集数" value="30" min="1">
-            <input type="text" id="newCourseUnit" class="text-input" style="width: 46px; padding: 6px; text-align: center;" value="集" maxlength="2" title="单位(集/篇/讲)">
-          </div>
-          <div style="display: flex; gap: 6px; justify-content: flex-end;">
-            <button type="button" id="btnCancelAddCourse" class="zhixing-tool-btn">取消</button>
-            <button type="button" id="btnSubmitAddCourse" class="zhixing-tool-btn" style="background: var(--primary); color: #fff; border-color: var(--primary);">✓ 确认添加课程</button>
-          </div>
+          新课看视频、旧课整笔记、碎片刷词卡，各阶段独立设总数与单位；点击「+ 新增」或卡片 ✏️ 可自由增删改与归档
         </div>
         <!-- 活跃课程游标列表 -->
         <div id="learningCursorsContainer"></div>
@@ -743,12 +730,28 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.8.0 Current -->
+    <!-- v1.9.0 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
+          <span>v1.9.0</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 游标全自由度增删改 + 大触控防误触 + 计划与打卡合流版</span>
+        </div>
+        <span class="changelog-date">2026-11-25</span>
+      </div>
+      <ul class="changelog-list">
+        <li><b>📚 修学游标全自由度增删改 & 分阶段独立总数/单位</b>：新增课程编辑抽屉弹窗，每门课的视频课（集）、整理笔记（篇）、背诵词卡（张）、分享（次）均可独立启用/关闭、独立设置总数与单位，支持随时改名与直接删除（预置精简为《黄帝内经》《针灸大成》）；</li>
+        <li><b>📱 移动端大触控防误触重构</b>：游标卡片改为清晰双行呼吸布局，进度数字独立成胶囊，<code>−</code> 与 <code>+1</code> 按钮加宽加大（≥34px）并留足间距，彻底告别误触旁边或上下行按钮；</li>
+        <li><b>🎯 今日计划与分级打卡合流 + 微步完全可编辑</b>：将「践行微步·分级打卡」上移紧贴「今日计划」下方，并优化自由两段式计划模板（今日怎么做 + 今日尽量完成）；微步编排弹窗新增 ✏️ 编辑与 ↑/↓ 排序，完整支持增删改排！</li>
+      </ul>
+    </div>
+
+    <!-- v1.8.0 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
           <span>v1.8.0</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 四阶段修学游标双入口 & 一二级分类自由排序版</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
         </div>
         <span class="changelog-date">2026-11-25</span>
       </div>
@@ -1183,6 +1186,35 @@
     </div>
 
     <!-- 谷歌云桥配置弹窗 (Google Apps Script Cloud Bridge Modal) -->
+    <!-- Course Edit / Create Drawer Modal (高自由度增删改与各阶段独立总数/单位配置) -->
+    <div id="courseEditModal" class="modal-overlay">
+      <div class="bottom-sheet" style="max-height: 88vh;">
+        <div class="sheet-handle"></div>
+        <div class="sheet-header">
+          <span id="courseModalTitle" class="sheet-title">📚 新增修学课程</span>
+          <button id="courseModalCloseBtn" class="sheet-close-btn">✕</button>
+        </div>
+        <div style="padding-bottom: 24px;">
+          <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <input type="text" id="editCourseIcon" class="text-input" style="width: 56px; text-align: center; font-size: 1.3rem; padding: 6px;" value="📘" maxlength="2" title="图标">
+            <input type="text" id="editCourseName" class="text-input" style="flex: 1; font-weight: 700;" placeholder="课程名称 (如：高等数学、针灸大成)">
+          </div>
+          <div style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); margin-bottom: 8px;">
+            各阶段独立进度与单位配置（暂不用的阶段可取消勾选隐藏）：
+          </div>
+          <div id="courseStagesConfigList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+          <div style="display: flex; gap: 10px; margin-top: 16px;">
+            <button type="button" id="btnDeleteCourseInModal" class="btn-danger-outline" style="display: none; padding: 11px 14px; border: 1.5px solid #EF4444; color: #EF4444; background: #FEF2F2; border-radius: var(--radius-md); font-weight: 700; cursor: pointer; font-size: 0.85rem;">
+              🗑️ 删除课程
+            </button>
+            <button type="button" id="btnSaveCourseInModal" class="btn-primary" style="flex: 2; margin-top: 0;">
+              ✓ 保存课程设置
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="cloudBridgeModal" class="modal-overlay">
       <div class="bottom-sheet">
         <div class="sheet-handle"></div>
@@ -1212,6 +1244,6 @@
 
   </div>
 
-  <script src="app.js?v=1.8.0"></script>
+  <script src="app.js?v=1.9.0"></script>
 </body>
 </html>
