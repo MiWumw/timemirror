@@ -6,6 +6,14 @@
 
 ---
 
+## [2026-11-25 21:44] 任务：v1.9.1 修复弹窗嵌套遮蔽 Bug & 暂时冷冻云端计划拉取
+- **决策来源**：用户反馈点击分级打卡编排无反应、课程新增编辑按钮无反应、刷新仍残留 11-24 大表且想冷冻云端计划拉取
+- **根因定位**：`index.html` `#changelogModal` 内 `v1.7.1` 卡片少闭合一个 `</div>`，导致其后 5 个弹窗全部落入隐藏的 `#changelogModal` 内无法显示！
+- **改动文件**：`index.html`（补全 `</div>`、隐藏 `btnPullPlanBridge`、新增 `btnClearDailyPlan`）、`app.js`（冷冻云端计划自动注入、净化 11-24 残留、绑定清空）、`sw.js`、`CHANGELOG.md`、`WORKFLOW_LOG.md`、`CONTEXT_HUB.md`（同步升至 `v1.9.1`）。
+- **验证结果**：HTML 弹窗父级校验全部为 `app-shell`，`node -c app.js` 通过，已推送至 GitHub `main`。
+
+---
+
 ## [2026-11-25 21:26] 任务：v1.9.0 游标全自由度增删改 + 大触控防误触 + 计划与打卡合流版落地
 - **决策来源**：用户反馈游标需完整增删改、分阶段独立总数与单位、去紫微庄子、清理云端今日计划、合并计划与分级打卡及大触控舒适度；并将高自由度与触控规范沉淀至 `D:\fzl\AGENTS.md`
 - **改动文件**：`D:\fzl\AGENTS.md`（新增第 8、9 条全局设计红线）、`app.js`、`index.html`、`style.css`、`sw.js`、`CHANGELOG.md`、`WORKFLOW_LOG.md`、`CONTEXT_HUB.md`（同步升至 `v1.9.0`）；同时通过 `gdrive` 将云端冗余 `今日计划` 文件移入回收站。

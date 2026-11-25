@@ -704,10 +704,16 @@ document.addEventListener('DOMContentLoaded', () => {
   updateUI();
   registerServiceWorker();
 
-  // 🪞 首次载入若今日计划尚为空，尝试从本地电脑网关静默拉取云端计划
-  if (!state.plans[state.currentDate]) {
-    pullPlanFromBridge(true);
+  // 🧹 自动净化误拉入今日的跨日旧时间表残留（例如 2026-11-24 的刻板节奏大表）
+  const todayStr = getTodayString();
+  if (state.plans[todayStr] && state.plans[todayStr].includes('今日时间节奏（2026-11-24')) {
+    delete state.plans[todayStr];
+    savePlans();
+    renderDailyPlanSection();
   }
+
+  // ❄️ 暂时冷冻：首次载入不再自动静默拉取云端/局域网今日计划，交由用户自由书写
+  // if (!state.plans[state.currentDate]) { pullPlanFromBridge(true); }
 
   // ☁️ 首次载入若配置了云桥，尝试自动静默从谷歌云盘拉取同步最新状态
   if (CloudSyncAdapter.getUrl()) {
@@ -962,6 +968,23 @@ function initEventListeners() {
       handlePlanInput();
       renderDailyPlanSection();
       inputDailyPlan.focus();
+    });
+  }
+
+  // 一键清空今日计划按钮
+  const btnClearDailyPlan = document.getElementById('btnClearDailyPlan');
+  if (btnClearDailyPlan && inputDailyPlan) {
+    btnClearDailyPlan.addEventListener('click', () => {
+      if (!state.plans[state.currentDate] || confirm('确定清空当前日期的今日计划文本框吗？')) {
+        state.plans[state.currentDate] = '';
+        inputDailyPlan.value = '';
+        savePlans();
+        state.planViewMode = 'raw';
+        localStorage.setItem('tm_plan_view_mode', 'raw');
+        renderDailyPlanSection();
+        inputDailyPlan.focus();
+        showToast('🧹 已清空今日计划，可自由书写');
+      }
     });
   }
 
@@ -4827,8 +4850,9 @@ const CloudSyncAdapter = {
         if (merged.learningCursors) StorageAdapter.save('learning_cursors', merged.learningCursors);
       }
 
-      // 🎯 核心增强：自动解析并载入云端返回的《今日计划.md》/ planMarkdown
-      const rawCloudPlan = data.planMarkdown || data.todayPlan || data.todayPlanMarkdown || data.todayPlanContent || (typeof data.plan === 'string' ? data.plan : null);
+      // ❄️ 暂时冷冻云端《今日计划》自动拉取注入功能，保留代码备未来开启
+      const FREEZE_CLOUD_PLAN_PULL = true;
+      const rawCloudPlan = !FREEZE_CLOUD_PLAN_PULL ? (data.planMarkdown || data.todayPlan || data.todayPlanMarkdown || data.todayPlanContent || (typeof data.plan === 'string' ? data.plan : null)) : null;
       if (rawCloudPlan && typeof rawCloudPlan === 'string' && rawCloudPlan.trim()) {
         const cleanPlan = rawCloudPlan.trim();
         // 🛡️ 防御层：如果文本被意外污染为 PDF 二进制流，自动拦截防乱码

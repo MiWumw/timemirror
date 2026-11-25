@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v190-cursor-crud-touch-habits-merge';
+const CACHE_NAME = 'timemirror-v191-fix-modals-freeze-cloud-plan';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.9.0',
-  './app.js?v=1.9.0',
+  './style.css?v=1.9.1',
+  './app.js?v=1.9.1',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
