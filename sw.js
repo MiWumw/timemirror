@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v172-cache-bust';
+const CACHE_NAME = 'timemirror-v180-learning-cursors-cat-sorting';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.7.2',
-  './app.js?v=1.7.2',
+  './style.css?v=1.8.0',
+  './app.js?v=1.8.0',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',

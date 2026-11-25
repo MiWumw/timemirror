@@ -2319,3 +2319,247 @@ body {
   transform: scale(1.14);
   box-shadow: 0 0 0 2px #FFFFFF, 0 2px 8px rgba(0, 0, 0, 0.25);
 }
+
+/* 分类上下排序按钮 */
+.cat-sort-btns {
+  display: inline-flex;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.cat-move-btn {
+  background: #F1F5F9;
+  border: 1px solid #CBD5E1;
+  color: var(--text-main);
+  font-size: 0.7rem;
+  font-weight: 700;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.cat-move-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* 📚 修学进度游标看板 (入口 B) */
+.add-course-inline-box {
+  background: #F8FAFC;
+  border: 1.5px dashed #93C5FD;
+  border-radius: var(--radius-md);
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.learning-course-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-top: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.learning-course-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 6px;
+}
+
+.learning-course-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.learning-course-meta {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #F1F5F9;
+  padding: 1px 6px;
+  border-radius: 99px;
+}
+
+.learning-course-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.learning-stages-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cursor-stage-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cursor-stage-label {
+  width: 88px;
+  flex-shrink: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cursor-today-delta {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #059669;
+  background: #D1FAE5;
+  padding: 0 4px;
+  border-radius: 99px;
+}
+
+.cursor-progress-track {
+  flex: 1;
+  height: 7px;
+  background: #F1F5F9;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.cursor-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.25s ease;
+}
+
+.cursor-stage-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cursor-step-btn {
+  background: #F1F5F9;
+  border: 1px solid #CBD5E1;
+  color: var(--text-main);
+  font-size: 0.74rem;
+  font-weight: 700;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.cursor-step-btn.btn-cursor-inc {
+  background: #EFF6FF;
+  border-color: #93C5FD;
+  color: #1D4ED8;
+}
+
+.cursor-step-btn:active {
+  transform: scale(0.93);
+}
+
+.cursor-val-text {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-main);
+  min-width: 40px;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: underline dotted #CBD5E1;
+}
+
+.archived-course-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  padding: 6px 8px;
+  background: #F8FAFC;
+  border-radius: 6px;
+  margin-top: 4px;
+}
+
+/* 📚 入口 A：时间块记录弹窗联动推进面板 */
+.record-cursor-link-box {
+  background: #F0F9FF;
+  border: 1.5px solid #BAE6FD;
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.record-cursor-link-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0369A1;
+}
+
+.record-cursor-link-body {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #BAE6FD;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.link-stage-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.link-stage-btn {
+  background: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 99px;
+  cursor: pointer;
+}
+
+.link-stage-btn.active {
+  background: #0284C7;
+  border-color: #0284C7;
+  color: #FFFFFF;
+}
+
+.link-target-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.link-target-input {
+  width: 54px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 3px 4px;
+  border: 1px solid #93C5FD;
+  border-radius: 5px;
+  background: #FFFFFF;
+}

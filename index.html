@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.7.2">
+  <link rel="stylesheet" href="style.css?v=1.8.0">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.7.2</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.8.0</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -340,6 +340,40 @@
         <div id="winner-trials-container"></div>
       </div>
 
+      <!-- 📚 修学进度游标看板 (入口 B：四阶段独立追踪 · 支持归档与随时 +1 步进) -->
+      <div class="zhixing-card" id="learningCursorsCard" style="border-left: 3px solid #3B82F6;">
+        <div class="zhixing-card-header">
+          <div class="zhixing-title">
+            <span>📚 修学进度游标</span>
+            <span id="learningCursorsBadge" class="auto-save-tag" style="background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE;">四阶段独立追踪</span>
+          </div>
+          <div class="zhixing-actions">
+            <button type="button" id="btnToggleAddCourse" class="zhixing-tool-btn" style="color: var(--primary); font-weight: 700;">+ 新增课程</button>
+            <button type="button" id="btnToggleArchivedCourses" class="zhixing-tool-btn" title="查看已学完归档的课程">📦 归档库</button>
+          </div>
+        </div>
+        <div class="zhixing-desc">
+          新课看视频、旧课整笔记、碎片刷 Anki 多线并行；学完可一键归档，进度实时同步云端游标卡
+        </div>
+        <!-- 内联新增课程面板 -->
+        <div id="addCourseInlineBox" class="add-course-inline-box" style="display: none;">
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <input type="text" id="newCourseIcon" class="text-input" style="width: 46px; text-align: center; padding: 6px;" value="📘" maxlength="2" title="图标">
+            <input type="text" id="newCourseName" class="text-input" style="flex: 2; padding: 6px 10px;" placeholder="课程名 (如：高等数学)">
+            <input type="number" id="newCourseTotal" class="text-input" style="width: 68px; padding: 6px 8px;" placeholder="总集数" value="30" min="1">
+            <input type="text" id="newCourseUnit" class="text-input" style="width: 46px; padding: 6px; text-align: center;" value="集" maxlength="2" title="单位(集/篇/讲)">
+          </div>
+          <div style="display: flex; gap: 6px; justify-content: flex-end;">
+            <button type="button" id="btnCancelAddCourse" class="zhixing-tool-btn">取消</button>
+            <button type="button" id="btnSubmitAddCourse" class="zhixing-tool-btn" style="background: var(--primary); color: #fff; border-color: var(--primary);">✓ 确认添加课程</button>
+          </div>
+        </div>
+        <!-- 活跃课程游标列表 -->
+        <div id="learningCursorsContainer"></div>
+        <!-- 已归档课程折叠容器 -->
+        <div id="archivedCoursesContainer" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #CBD5E1;"></div>
+      </div>
+
       <!-- 第三段：复盘反思 · 诚意慎独 (移除误触清空，加入防丢历史快照) -->
       <div class="zhixing-card">
         <div class="zhixing-card-header">
@@ -586,6 +620,8 @@
           <div id="subCategoryChipsWrapper" class="sub-category-chips-wrapper" style="display: none;">
             <!-- Dynamically injected secondary subcategory chips -->
           </div>
+          <!-- 入口 A：学习类时间块联动推进修学游标 -->
+          <div id="recordCursorLinkBox" class="record-cursor-link-box" style="display: none;"></div>
 
           <!-- Time Picker -->
           <div class="form-section-title">起止时间段</div>
@@ -707,12 +743,29 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.7.2 Current -->
+    <!-- v1.8.0 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
+          <span>v1.8.0</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 四阶段修学游标双入口 & 一二级分类自由排序版</span>
+        </div>
+        <span class="changelog-date">2026-11-25</span>
+      </div>
+      <ul class="changelog-list">
+        <li><b>📚 四阶段修学进度游标（双入口并进）</b>：每门课独立追踪「🎬 视频课」「📝 整理笔记」「🧠 背诵/Anki」「🗣️ 分享/复述」4 条进度线！新课看视频、旧课整笔记互不干扰，支持学完一键归档；</li>
+        <li><b>🔗 入口 A（时间块联动推进）</b>：记录“学习 / 视频课 / 整理笔记 / 背诵 / 分享”时间块时，弹窗智能识别阶段并联动弹出游标推进条，保存时同步 +1 推进并自动写入备注与暮夜对账日志；</li>
+        <li><b>🎛️ 入口 B（独立修学游标看板）</b>：【每日复盘】页新增修学进度看板，支持随时 +1/-1 步进、点击数字设值、增删改课程与归档库，并全量同步至谷歌云端；</li>
+        <li><b>↕️ 一二级分类自由上下排序</b>：在「⚙️ 自定义/管理分类」中新增 ↑ / ↓ 排序按钮，常用分类（如「学习」）及其下的二级细分可自由调到最前面，且云同步严格保留您的自定义顺序。</li>
+      </ul>
+    </div>
+
+    <!-- v1.7.2 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
           <span>v1.7.2</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 彻底破除静态资源强缓存版</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
         </div>
         <span class="changelog-date">2026-11-25</span>
       </div>
@@ -1159,6 +1212,6 @@
 
   </div>
 
-  <script src="app.js?v=1.7.2"></script>
+  <script src="app.js?v=1.8.0"></script>
 </body>
 </html>

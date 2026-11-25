@@ -186,6 +186,121 @@ const DEFAULT_WINNER_TRIALS = {
   graduatedTrials: []
 };
 
+// ==========================================
+// 📚 四阶段修学进度游标管理器 (LearningCursorManager v1.8.0)
+// ==========================================
+const LEARNING_STAGES = [
+  { key: 'video', label: '视频课', icon: '🎬', color: '#3B82F6' },
+  { key: 'note', label: '整理笔记', icon: '📝', color: '#10B981' },
+  { key: 'recite', label: '背诵/Anki', icon: '🧠', color: '#8B5CF6' },
+  { key: 'share', label: '分享/复述', icon: '🗣️', color: '#F59E0B' }
+];
+
+const DEFAULT_LEARNING_CURSORS = {
+  version: 1,
+  courses: [
+    { id: 'course_hdnj', name: '黄帝内经', icon: '📖', total: 81, unit: '集', archived: false, updatedAt: '2026-11-25T14:00:00Z', stages: { video: 19, note: 12, recite: 10, share: 0 } },
+    { id: 'course_zjdc', name: '针灸大成', icon: '🪡', total: 81, unit: '集', archived: false, updatedAt: '2026-11-25T12:00:00Z', stages: { video: 50, note: 48, recite: 45, share: 0 } },
+    { id: 'course_zhuangzi', name: '庄子', icon: '🕯️', total: 21, unit: '篇', archived: false, updatedAt: '2026-11-18T10:00:00Z', stages: { video: 5, note: 3, recite: 0, share: 0 } },
+    { id: 'course_ziwei', name: '紫微斗数', icon: '🌌', total: 14, unit: '讲', archived: false, updatedAt: '2026-11-18T10:00:00Z', stages: { video: 4, note: 2, recite: 0, share: 0 } }
+  ],
+  dailyLogs: {}
+};
+
+const LearningCursorManager = {
+  getData() {
+    let data = StorageAdapter.load('learning_cursors', null);
+    if (!data || !Array.isArray(data.courses)) {
+      data = JSON.parse(JSON.stringify(DEFAULT_LEARNING_CURSORS));
+      this.saveData(data);
+    }
+    if (!data.dailyLogs) data.dailyLogs = {};
+    return data;
+  },
+  saveData(data) {
+    StorageAdapter.save('learning_cursors', data);
+  },
+  getActiveCourses() {
+    return this.getData().courses.filter(c => !c.archived);
+  },
+  getArchivedCourses() {
+    return this.getData().courses.filter(c => c.archived);
+  },
+  addCourse(name, total = 30, unit = '集', icon = '📘') {
+    const data = this.getData();
+    const newCourse = {
+      id: 'course_' + Date.now().toString(36),
+      name: name.trim(),
+      icon: (icon || '📘').trim(),
+      total: Math.max(1, parseInt(total, 10) || 30),
+      unit: (unit || '集').trim(),
+      archived: false,
+      updatedAt: new Date().toISOString(),
+      stages: { video: 0, note: 0, recite: 0, share: 0 }
+    };
+    data.courses.unshift(newCourse);
+    this.saveData(data);
+    return newCourse;
+  },
+  updateCourse(courseId, fields) {
+    const data = this.getData();
+    const c = data.courses.find(item => item.id === courseId);
+    if (!c) return null;
+    if (fields.name !== undefined) c.name = fields.name.trim();
+    if (fields.total !== undefined) c.total = Math.max(1, parseInt(fields.total, 10) || c.total);
+    if (fields.unit !== undefined) c.unit = fields.unit.trim() || '集';
+    if (fields.icon !== undefined) c.icon = fields.icon.trim() || '📘';
+    if (fields.archived !== undefined) c.archived = !!fields.archived;
+    c.updatedAt = new Date().toISOString();
+    this.saveData(data);
+    return c;
+  },
+  deleteCourse(courseId) {
+    const data = this.getData();
+    data.courses = data.courses.filter(c => c.id !== courseId);
+    this.saveData(data);
+  },
+  advanceStage(courseId, stageKey, valueOrDelta, isAbsolute = false, dateStr = null) {
+    const data = this.getData();
+    const c = data.courses.find(item => item.id === courseId);
+    if (!c) return null;
+    if (!c.stages) c.stages = { video: 0, note: 0, recite: 0, share: 0 };
+
+    const prevVal = Number(c.stages[stageKey] || 0);
+    let nextVal = isAbsolute ? Number(valueOrDelta) : (prevVal + Number(valueOrDelta));
+    if (isNaN(nextVal)) nextVal = prevVal;
+    nextVal = Math.max(0, Math.min(c.total || 9999, nextVal));
+
+    c.stages[stageKey] = nextVal;
+    c.updatedAt = new Date().toISOString();
+
+    const dKey = dateStr || (state ? state.currentDate : getTodayString());
+    const delta = nextVal - prevVal;
+    if (delta !== 0) {
+      if (!data.dailyLogs[dKey]) data.dailyLogs[dKey] = [];
+      data.dailyLogs[dKey].push({
+        courseId: c.id,
+        courseName: c.name,
+        stage: stageKey,
+        fromVal: prevVal,
+        toVal: nextVal,
+        delta: delta,
+        total: c.total,
+        unit: c.unit || '集',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    this.saveData(data);
+    return { course: c, prevVal, nextVal, delta };
+  },
+  getTodayDeltaForCourseStage(dateStr, courseId, stageKey) {
+    const logs = (this.getData().dailyLogs || {})[dateStr] || [];
+    return logs.filter(l => l.courseId === courseId && l.stage === stageKey)
+      .reduce((acc, l) => acc + (l.delta || 0), 0);
+  }
+};
+
 const HabitManager = {
   getConfig() {
     let cfg = StorageAdapter.load('habits_config', null);
@@ -530,6 +645,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderDailyWeightSection();
   renderHabitsSection();
   renderWinnerTrials();
+  renderLearningCursorsSection();
   renderBodyStateSection();
   updateUI();
   registerServiceWorker();
@@ -1364,6 +1480,135 @@ function renderCategoryChips() {
       subWrapper.innerHTML = '';
     }
   }
+
+  // 入口 A：判断当前选中的活动是否为学习类（视频课/整理笔记/背诵/分享等），联动显示修学游标推进栏
+  renderRecordCursorLinkBox();
+}
+
+let recordCursorLinkState = { courseId: '', stage: 'video', targetVal: 0 };
+
+function detectStageFromCategory(catName) {
+  const name = (catName || '').toLowerCase();
+  if (name.includes('视频') || name.includes('听课')) return 'video';
+  if (name.includes('笔记') || name.includes('词卡') || name.includes('导图') || name.includes('整理')) return 'note';
+  if (name.includes('背诵') || name.includes('anki') || name.includes('刷卡')) return 'recite';
+  if (name.includes('分享') || name.includes('复述') || name.includes('输出')) return 'share';
+  return 'video';
+}
+
+function isLearningCategorySelected() {
+  const cat = state.categories.find(c => c.id === state.selectedCategory);
+  if (!cat) return false;
+  const parent = cat.parentId ? state.categories.find(p => p.id === cat.parentId) : null;
+  const combined = ((cat.name || '') + ' ' + (parent ? parent.name : '')).toLowerCase();
+  return /学习|视频|笔记|背诵|分享|研读|anki|刷题|看书|复习|听课/.test(combined);
+}
+
+function renderRecordCursorLinkBox() {
+  const box = document.getElementById('recordCursorLinkBox');
+  if (!box) return;
+
+  if (!isLearningCategorySelected()) {
+    box.style.display = 'none';
+    box.innerHTML = '';
+    recordCursorLinkState.courseId = '';
+    return;
+  }
+
+  const activeCourses = LearningCursorManager.getActiveCourses();
+  if (activeCourses.length === 0) {
+    box.style.display = 'none';
+    return;
+  }
+
+  const cat = state.categories.find(c => c.id === state.selectedCategory);
+  const autoStage = detectStageFromCategory(cat ? cat.name : '');
+  // 当切换分类时同步默认阶段，但保留已选课程
+  recordCursorLinkState.stage = autoStage;
+
+  const selectedCourse = activeCourses.find(c => c.id === recordCursorLinkState.courseId) || null;
+  if (selectedCourse) {
+    const curVal = Number((selectedCourse.stages && selectedCourse.stages[recordCursorLinkState.stage]) || 0);
+    recordCursorLinkState.targetVal = Math.min(selectedCourse.total, curVal + 1);
+  }
+
+  box.style.display = 'block';
+  const courseOptions = activeCourses.map(c => {
+    const stVal = Number((c.stages && c.stages[recordCursorLinkState.stage]) || 0);
+    return `<option value="${c.id}" ${recordCursorLinkState.courseId === c.id ? 'selected' : ''}>${c.icon || '📘'} ${escapeHtml(c.name)} (当前 ${stVal}/${c.total}${c.unit || '集'})</option>`;
+  }).join('');
+
+  const stageChipsHtml = LEARNING_STAGES.map(st => `
+    <button type="button" class="link-stage-btn ${recordCursorLinkState.stage === st.key ? 'active' : ''}" data-stage="${st.key}">
+      ${st.icon} ${st.label}
+    </button>
+  `).join('');
+
+  box.innerHTML = `
+    <div class="record-cursor-link-header">
+      <span>📚 顺便推进修学游标（可选）</span>
+      <select id="recordLinkCourseSelect" class="text-input" style="width:auto; min-width:155px; padding:4px 8px; font-size:0.76rem; font-weight:600;">
+        <option value="">暂不推进游标</option>
+        ${courseOptions}
+      </select>
+    </div>
+    ${selectedCourse ? `
+      <div class="record-cursor-link-body">
+        <div class="link-stage-row">${stageChipsHtml}</div>
+        <div class="link-target-row">
+          <span style="font-size:0.75rem;color:var(--text-muted);">推进至第</span>
+          <button type="button" class="cursor-step-btn" id="btnLinkTargetDec">−</button>
+          <input type="number" id="inputLinkTargetVal" class="link-target-input" value="${recordCursorLinkState.targetVal}" min="0" max="${selectedCourse.total}">
+          <button type="button" class="cursor-step-btn" id="btnLinkTargetInc">+</button>
+          <span style="font-size:0.75rem;color:var(--text-muted);">/ ${selectedCourse.total}${selectedCourse.unit || '集'}</span>
+        </div>
+      </div>
+    ` : ''}
+  `;
+
+  const sel = box.querySelector('#recordLinkCourseSelect');
+  if (sel) {
+    sel.addEventListener('change', () => {
+      recordCursorLinkState.courseId = sel.value;
+      renderRecordCursorLinkBox();
+    });
+  }
+
+  box.querySelectorAll('.link-stage-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      recordCursorLinkState.stage = btn.dataset.stage;
+      if (selectedCourse) {
+        const cur = Number((selectedCourse.stages && selectedCourse.stages[recordCursorLinkState.stage]) || 0);
+        recordCursorLinkState.targetVal = Math.min(selectedCourse.total, cur + 1);
+      }
+      renderRecordCursorLinkBox();
+    });
+  });
+
+  const decBtn = box.querySelector('#btnLinkTargetDec');
+  const incBtn = box.querySelector('#btnLinkTargetInc');
+  const numInp = box.querySelector('#inputLinkTargetVal');
+  if (decBtn && numInp && selectedCourse) {
+    decBtn.addEventListener('click', () => {
+      const v = Math.max(0, (parseInt(numInp.value, 10) || 0) - 1);
+      numInp.value = v;
+      recordCursorLinkState.targetVal = v;
+    });
+  }
+  if (incBtn && numInp && selectedCourse) {
+    incBtn.addEventListener('click', () => {
+      const v = Math.min(selectedCourse.total, (parseInt(numInp.value, 10) || 0) + 1);
+      numInp.value = v;
+      recordCursorLinkState.targetVal = v;
+    });
+  }
+  if (numInp && selectedCourse) {
+    numInp.addEventListener('change', () => {
+      const v = Math.max(0, Math.min(selectedCourse.total, parseInt(numInp.value, 10) || 0));
+      numInp.value = v;
+      recordCursorLinkState.targetVal = v;
+    });
+  }
 }
 
 function getTodayRecords() {
@@ -1645,12 +1890,13 @@ function closeRecordModal() {
   recordModal.classList.remove('open');
   state.editingRecordId = null;
   state.editingTargetDate = null;
+  recordCursorLinkState.courseId = '';
 }
 
 function handleSaveRecord() {
   const start = inputStartTime.value;
   const end = inputEndTime.value;
-  const note = inputNote.value.trim();
+  let note = inputNote.value.trim();
 
   if (!start || !end) {
     alert('请填写起始时间和结束时间');
@@ -1663,6 +1909,30 @@ function handleSaveRecord() {
   }
 
   const targetDate = state.editingTargetDate || state.currentDate;
+
+  // 若用户通过入口 A 关联推进了修学游标，自动落盘并智能注入备注
+  let cursorAdvanceMsg = '';
+  if (recordCursorLinkState.courseId && isLearningCategorySelected()) {
+    const inpVal = document.getElementById('inputLinkTargetVal');
+    const targetVal = inpVal ? parseInt(inpVal.value, 10) : recordCursorLinkState.targetVal;
+    const advRes = LearningCursorManager.advanceStage(
+      recordCursorLinkState.courseId,
+      recordCursorLinkState.stage,
+      targetVal,
+      true,
+      targetDate
+    );
+    if (advRes) {
+      const stMeta = LEARNING_STAGES.find(s => s.key === recordCursorLinkState.stage) || { label: '' };
+      const tagStr = `《${advRes.course.name}》${stMeta.label} (${advRes.nextVal}/${advRes.course.total})`;
+      if (!note) {
+        note = tagStr;
+      } else if (!note.includes(advRes.course.name)) {
+        note = `${tagStr} · ${note}`;
+      }
+      cursorAdvanceMsg = `📚 已同步推进《${advRes.course.name}》至 ${advRes.nextVal}/${advRes.course.total}`;
+    }
+  }
   if (!state.records[targetDate]) {
     state.records[targetDate] = [];
   }
@@ -1695,7 +1965,10 @@ function handleSaveRecord() {
   saveRecords();
   closeRecordModal();
   updateUI();
-  if (isCrossDay) {
+  renderLearningCursorsSection();
+  if (cursorAdvanceMsg) {
+    showToast(cursorAdvanceMsg);
+  } else if (isCrossDay) {
     showToast(`✅ 已成功补录至昨日 (${targetDate.slice(5)})！`);
   }
 }
@@ -1759,6 +2032,7 @@ function renderReviewTab() {
   renderDailyExecutionSection();
   renderHabitsSection();
   renderWinnerTrials();
+  renderLearningCursorsSection();
   renderDailyReflectionSection();
 }
 
@@ -2909,6 +3183,234 @@ function renderWinnerTrials() {
   container.innerHTML = html;
 }
 
+// ==========================================
+// 📚 入口 B：修学进度游标看板渲染与交互
+// ==========================================
+let learningCursorsBound = false;
+function bindLearningCursorsControls() {
+  if (learningCursorsBound) return;
+  learningCursorsBound = true;
+
+  const btnAdd = document.getElementById('btnToggleAddCourse');
+  const box = document.getElementById('addCourseInlineBox');
+  const btnCancel = document.getElementById('btnCancelAddCourse');
+  const btnSubmit = document.getElementById('btnSubmitAddCourse');
+  const btnArchived = document.getElementById('btnToggleArchivedCourses');
+  const archivedBox = document.getElementById('archivedCoursesContainer');
+
+  if (btnAdd && box) {
+    btnAdd.addEventListener('click', () => {
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+      if (box.style.display === 'block') {
+        const nameInp = document.getElementById('newCourseName');
+        if (nameInp) nameInp.focus();
+      }
+    });
+  }
+  if (btnCancel && box) {
+    btnCancel.addEventListener('click', () => { box.style.display = 'none'; });
+  }
+  if (btnSubmit && box) {
+    btnSubmit.addEventListener('click', () => {
+      const nameInp = document.getElementById('newCourseName');
+      const totalInp = document.getElementById('newCourseTotal');
+      const unitInp = document.getElementById('newCourseUnit');
+      const iconInp = document.getElementById('newCourseIcon');
+      const name = nameInp ? nameInp.value.trim() : '';
+      if (!name) {
+        alert('请输入修学课程名称！');
+        if (nameInp) nameInp.focus();
+        return;
+      }
+      LearningCursorManager.addCourse(
+        name,
+        totalInp ? totalInp.value : 30,
+        unitInp ? unitInp.value : '集',
+        iconInp ? iconInp.value : '📘'
+      );
+      if (nameInp) nameInp.value = '';
+      box.style.display = 'none';
+      renderLearningCursorsSection();
+      showToast(`📚 已新增修学课程「${name}」`);
+    });
+  }
+  if (btnArchived && archivedBox) {
+    btnArchived.addEventListener('click', () => {
+      const isHidden = archivedBox.style.display === 'none';
+      archivedBox.style.display = isHidden ? 'block' : 'none';
+      btnArchived.textContent = isHidden ? '📦 收起归档' : '📦 归档库';
+    });
+  }
+}
+
+function renderLearningCursorsSection() {
+  bindLearningCursorsControls();
+  const container = document.getElementById('learningCursorsContainer');
+  const archivedBox = document.getElementById('archivedCoursesContainer');
+  const badge = document.getElementById('learningCursorsBadge');
+  if (!container) return;
+
+  const activeCourses = LearningCursorManager.getActiveCourses();
+  const archivedCourses = LearningCursorManager.getArchivedCourses();
+  const dStr = state ? state.currentDate : getTodayString();
+
+  if (badge) {
+    badge.textContent = `在学 ${activeCourses.length} 门`;
+  }
+
+  if (activeCourses.length === 0) {
+    container.innerHTML = `<div style="font-size:0.78rem;color:var(--text-muted);padding:12px 6px;text-align:center;">暂无在学课程，点击右上角【+ 新增课程】建立你的四阶段进度游标！</div>`;
+  } else {
+    container.innerHTML = activeCourses.map(course => {
+      const stagesHtml = LEARNING_STAGES.map(st => {
+        const curVal = Number((course.stages && course.stages[st.key]) || 0);
+        const total = Math.max(1, Number(course.total) || 1);
+        const pct = Math.min(100, Math.round((curVal / total) * 100));
+        const todayDelta = LearningCursorManager.getTodayDeltaForCourseStage(dStr, course.id, st.key);
+        const deltaBadge = todayDelta > 0 ? `<span class="cursor-today-delta">+${todayDelta}</span>` : '';
+
+        return `
+          <div class="cursor-stage-row">
+            <div class="cursor-stage-label">
+              <span>${st.icon} ${st.label}</span>
+              ${deltaBadge}
+            </div>
+            <div class="cursor-progress-track">
+              <div class="cursor-progress-fill" style="width: ${pct}%; background-color: ${st.color};"></div>
+            </div>
+            <div class="cursor-stage-ctrl">
+              <button type="button" class="cursor-step-btn btn-cursor-dec" data-cid="${course.id}" data-stage="${st.key}" title="回退 1">−</button>
+              <span class="cursor-val-text" data-cid="${course.id}" data-stage="${st.key}" title="点击直接输入集数">${curVal}/${total}</span>
+              <button type="button" class="cursor-step-btn btn-cursor-inc" data-cid="${course.id}" data-stage="${st.key}" title="推进 +1">+1</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="learning-course-card">
+          <div class="learning-course-header">
+            <div class="learning-course-title">
+              <span>${course.icon || '📘'} ${escapeHtml(course.name)}</span>
+              <span class="learning-course-meta">共 ${course.total}${course.unit || '集'}</span>
+            </div>
+            <div class="learning-course-actions">
+              <button type="button" class="zhixing-tool-btn btn-course-edit" data-cid="${course.id}" title="修改课程名或总集数">✏️</button>
+              <button type="button" class="zhixing-tool-btn btn-course-archive" data-cid="${course.id}" title="已学完归档">📦 归档</button>
+            </div>
+          </div>
+          <div class="learning-stages-list">
+            ${stagesHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 绑定步进、直接设值、编辑与归档事件
+  container.querySelectorAll('.btn-cursor-inc').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const res = LearningCursorManager.advanceStage(btn.dataset.cid, btn.dataset.stage, 1, false, dStr);
+      if (res) {
+        if (navigator.vibrate) navigator.vibrate(25);
+        renderLearningCursorsSection();
+        const stMeta = LEARNING_STAGES.find(s => s.key === btn.dataset.stage);
+        showToast(`📚 《${res.course.name}》${stMeta.label} 推进至 ${res.nextVal}/${res.course.total}`);
+      }
+    });
+  });
+
+  container.querySelectorAll('.btn-cursor-dec').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const res = LearningCursorManager.advanceStage(btn.dataset.cid, btn.dataset.stage, -1, false, dStr);
+      if (res) renderLearningCursorsSection();
+    });
+  });
+
+  container.querySelectorAll('.cursor-val-text').forEach(span => {
+    span.addEventListener('click', () => {
+      const cid = span.dataset.cid;
+      const stage = span.dataset.stage;
+      const c = LearningCursorManager.getData().courses.find(x => x.id === cid);
+      if (!c) return;
+      const stMeta = LEARNING_STAGES.find(s => s.key === stage);
+      const input = prompt(`设定《${c.name}》${stMeta.label}当前进度 (0 ~ ${c.total})：`, c.stages[stage] || 0);
+      if (input !== null && input.trim() !== '') {
+        const num = parseInt(input.trim(), 10);
+        if (!isNaN(num)) {
+          LearningCursorManager.advanceStage(cid, stage, num, true, dStr);
+          renderLearningCursorsSection();
+        }
+      }
+    });
+  });
+
+  container.querySelectorAll('.btn-course-edit').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const c = LearningCursorManager.getData().courses.find(x => x.id === btn.dataset.cid);
+      if (!c) return;
+      const newName = prompt('修改课程名称：', c.name);
+      if (newName === null) return;
+      const newTotal = prompt(`修改《${newName || c.name}》总集数/章数：`, c.total);
+      if (newTotal === null) return;
+      LearningCursorManager.updateCourse(c.id, {
+        name: newName.trim() || c.name,
+        total: parseInt(newTotal, 10) || c.total
+      });
+      renderLearningCursorsSection();
+      showToast('已更新课程信息');
+    });
+  });
+
+  container.querySelectorAll('.btn-course-archive').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const c = LearningCursorManager.getData().courses.find(x => x.id === btn.dataset.cid);
+      if (!c) return;
+      if (confirm(`确定将《${c.name}》移入归档库吗？（已学完或暂时搁置，随时可恢复）`)) {
+        LearningCursorManager.updateCourse(c.id, { archived: true });
+        renderLearningCursorsSection();
+        showToast(`📦 《${c.name}》已归档`);
+      }
+    });
+  });
+
+  // 渲染已归档课程
+  if (archivedBox) {
+    if (archivedCourses.length === 0) {
+      archivedBox.innerHTML = `<div style="font-size:0.74rem;color:var(--text-light);text-align:center;">归档库暂无课程</div>`;
+    } else {
+      archivedBox.innerHTML = `
+        <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;">📦 已归档修学课程 (${archivedCourses.length})</div>
+        ${archivedCourses.map(ac => `
+          <div class="archived-course-row">
+            <span>${ac.icon || '📘'} <b>${escapeHtml(ac.name)}</b> (${ac.total}${ac.unit || '集'})</span>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="zhixing-tool-btn btn-course-restore" data-cid="${ac.id}">↩️ 恢复</button>
+              <button type="button" class="zhixing-tool-btn btn-course-del" data-cid="${ac.id}" style="color:#EF4444;">🗑️</button>
+            </div>
+          </div>
+        `).join('')}
+      `;
+      archivedBox.querySelectorAll('.btn-course-restore').forEach(btn => {
+        btn.addEventListener('click', () => {
+          LearningCursorManager.updateCourse(btn.dataset.cid, { archived: false });
+          renderLearningCursorsSection();
+          showToast('已恢复至在学列表');
+        });
+      });
+      archivedBox.querySelectorAll('.btn-course-del').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (confirm('彻底删除该归档课程吗？')) {
+            LearningCursorManager.deleteCourse(btn.dataset.cid);
+            renderLearningCursorsSection();
+            showToast('已彻底删除');
+          }
+        });
+      });
+    }
+  }
+}
+
 function openHabitsModal() {
   const modal = document.getElementById('habitsModal');
   if (modal) {
@@ -3521,6 +4023,31 @@ function generateFullZhixingMarkdown(dateStr) {
     sections.push('');
   }
 
+  // 📚 今日修学游标推进汇总
+  const lcData = LearningCursorManager.getData();
+  const todayCursorLogs = (lcData.dailyLogs || {})[dateStr] || [];
+  if (todayCursorLogs.length > 0) {
+    sections.push('### 📚 今日修学游标推进');
+    const summaryMap = new Map();
+    todayCursorLogs.forEach(l => {
+      const key = `${l.courseId}__${l.stage}`;
+      if (!summaryMap.has(key)) {
+        summaryMap.set(key, { ...l });
+      } else {
+        const cur = summaryMap.get(key);
+        cur.toVal = l.toVal;
+        cur.delta += l.delta;
+      }
+    });
+    summaryMap.forEach(item => {
+      if (item.delta === 0) return;
+      const stMeta = LEARNING_STAGES.find(s => s.key === item.stage) || { icon: '📖', label: item.stage };
+      const sign = item.delta > 0 ? `+${item.delta}` : `${item.delta}`;
+      sections.push(`- **《${item.courseName}》** ${stMeta.icon} ${stMeta.label}：第 ${item.fromVal} → **${item.toVal}/${item.total}**${item.unit || '集'} (${sign})`);
+    });
+    sections.push('');
+  }
+
   // 第三部分：身体与心绪追踪
   const body = state.bodyState[dateStr] || {};
   sections.push('### 1. 身体状态与晨起体感');
@@ -3802,29 +4329,31 @@ async function testObsidianConnection() {
 // 🛡️ 多设备防炸缸·智能增量合并引擎 (Conflict-Free State Merger v1.5.0)
 // ==========================================
 const StateMerger = {
-  // 0. 合并分类元数据（保留默认分类，并集合并自定义分类，彻底解决 iPad 上显示“未命名”的问题）
+  // 0. 合并分类元数据（尊重用户自定义排序，并集合并云端新增分类）
   mergeCategories(local, cloud) {
-    const list = Array.isArray(DEFAULT_CATEGORIES) ? [...DEFAULT_CATEGORIES] : [];
+    const baseList = (Array.isArray(local) && local.length > 0)
+      ? [...local]
+      : (Array.isArray(cloud) && cloud.length > 0 ? [...cloud] : [...DEFAULT_CATEGORIES]);
     const idMap = new Map();
-    list.forEach(c => { if (c && c.id) idMap.set(c.id, c); });
-    
+    baseList.forEach(c => { if (c && c.id) idMap.set(c.id, c); });
+
     if (Array.isArray(cloud)) {
       cloud.forEach(c => {
         if (c && c.id && !idMap.has(c.id)) {
           idMap.set(c.id, c);
-          list.push(c);
+          baseList.push(c);
         }
       });
     }
-    if (Array.isArray(local)) {
-      local.forEach(c => {
+    if (Array.isArray(DEFAULT_CATEGORIES)) {
+      DEFAULT_CATEGORIES.forEach(c => {
         if (c && c.id && !idMap.has(c.id)) {
           idMap.set(c.id, c);
-          list.push(c);
+          baseList.push(c);
         }
       });
     }
-    return list;
+    return baseList;
   },
 
   // 1. 合并时间记录（按日期和独有 ID 取并集，按开始时间排序，绝不冲掉任何一台设备的记录）
@@ -3986,6 +4515,45 @@ const StateMerger = {
     };
   },
 
+  // 7. 合并修学进度游标（按课程ID合并，取较新updatedAt与较高进度，并集每日增量日志）
+  mergeLearningCursors(local, cloud) {
+    if (!cloud || !Array.isArray(cloud.courses)) return local;
+    if (!local || !Array.isArray(local.courses)) return cloud;
+    const map = new Map();
+    cloud.courses.forEach(c => { if (c && c.id) map.set(c.id, JSON.parse(JSON.stringify(c))); });
+    local.courses.forEach(lc => {
+      if (!lc || !lc.id) return;
+      if (!map.has(lc.id)) {
+        map.set(lc.id, JSON.parse(JSON.stringify(lc)));
+      } else {
+        const cc = map.get(lc.id);
+        const lTime = new Date(lc.updatedAt || 0).getTime();
+        const cTime = new Date(cc.updatedAt || 0).getTime();
+        const winner = lTime >= cTime ? lc : cc;
+        const other = lTime >= cTime ? cc : lc;
+        const mergedStages = {
+          video: Math.max(Number(winner.stages?.video || 0), Number(other.stages?.video || 0)),
+          note: Math.max(Number(winner.stages?.note || 0), Number(other.stages?.note || 0)),
+          recite: Math.max(Number(winner.stages?.recite || 0), Number(other.stages?.recite || 0)),
+          share: Math.max(Number(winner.stages?.share || 0), Number(other.stages?.share || 0))
+        };
+        map.set(lc.id, { ...winner, stages: mergedStages });
+      }
+    });
+    const mergedLogs = Object.assign({}, cloud.dailyLogs || {});
+    for (const d of Object.keys(local.dailyLogs || {})) {
+      if (!mergedLogs[d]) {
+        mergedLogs[d] = local.dailyLogs[d];
+      } else {
+        const tsSet = new Set(mergedLogs[d].map(x => x.timestamp));
+        (local.dailyLogs[d] || []).forEach(x => {
+          if (!tsSet.has(x.timestamp)) mergedLogs[d].push(x);
+        });
+      }
+    }
+    return { version: 1, courses: Array.from(map.values()), dailyLogs: mergedLogs };
+  },
+
   // 全量合并总线入口
   mergeAll(localState, cloudState) {
     if (!cloudState) return localState;
@@ -3999,7 +4567,8 @@ const StateMerger = {
       weights: this.mergeWeights(localState.weights, cloudState.weights),
       bodyState: this.mergeBodyState(localState.bodyState, cloudState.bodyState),
       winnerTrials: this.mergeWinnerTrials(localState.winnerTrials, cloudState.winnerTrials),
-      habitsConfig: cloudState.habitsConfig || localState.habitsConfig
+      habitsConfig: cloudState.habitsConfig || localState.habitsConfig,
+      learningCursors: this.mergeLearningCursors(localState.learningCursors, cloudState.learningCursors)
     };
   }
 };
@@ -4044,7 +4613,8 @@ const CloudSyncAdapter = {
           weights: StorageAdapter.load('weights', {}),
           bodyState: StorageAdapter.load('body_state', {}),
           winnerTrials: WinnerTrialManager.getData(),
-          habitsConfig: HabitManager.getConfig()
+          habitsConfig: HabitManager.getConfig(),
+          learningCursors: LearningCursorManager.getData()
         };
         merged = StateMerger.mergeAll(localState, data.state);
         // 自动净化本地可能混入的系统示例假数据 (s1~s11)
@@ -4072,6 +4642,7 @@ const CloudSyncAdapter = {
         if (merged.bodyState) { StorageAdapter.save('body_state', merged.bodyState); state.bodyState = merged.bodyState; }
         if (merged.winnerTrials) StorageAdapter.save('winner_trials', merged.winnerTrials);
         if (merged.habitsConfig) StorageAdapter.save('habits_config', merged.habitsConfig);
+        if (merged.learningCursors) StorageAdapter.save('learning_cursors', merged.learningCursors);
       }
 
       // 🎯 核心增强：自动解析并载入云端返回的《今日计划.md》/ planMarkdown
@@ -4406,6 +4977,52 @@ function updateCategoryColorModeUI() {
   }
 }
 
+function moveCategoryOrder(catId, direction) {
+  const target = state.categories.find(c => c.id === catId);
+  if (!target) return;
+
+  if (!target.parentId) {
+    // 顶级一级大类排序：提取所有一级大类调换顺序后，连同各自子类按新顺序重组
+    const primaries = state.categories.filter(c => !c.parentId);
+    const idx = primaries.findIndex(c => c.id === catId);
+    const targetIdx = idx + direction;
+    if (idx === -1 || targetIdx < 0 || targetIdx >= primaries.length) return;
+
+    const temp = primaries[idx];
+    primaries[idx] = primaries[targetIdx];
+    primaries[targetIdx] = temp;
+
+    const rebuilt = [];
+    primaries.forEach(p => {
+      rebuilt.push(p);
+      state.categories.filter(s => s.parentId === p.id).forEach(s => rebuilt.push(s));
+    });
+    // 兜底保留任何孤立项
+    state.categories.forEach(c => {
+      if (!rebuilt.some(r => r.id === c.id)) rebuilt.push(c);
+    });
+    state.categories = rebuilt;
+  } else {
+    // 二级子类排序：只在同母类下调换顺序
+    const siblings = state.categories.filter(c => c.parentId === target.parentId);
+    const sIdx = siblings.findIndex(c => c.id === catId);
+    const targetSIdx = sIdx + direction;
+    if (sIdx === -1 || targetSIdx < 0 || targetSIdx >= siblings.length) return;
+
+    const posA = state.categories.findIndex(c => c.id === siblings[sIdx].id);
+    const posB = state.categories.findIndex(c => c.id === siblings[targetSIdx].id);
+    if (posA !== -1 && posB !== -1) {
+      const tmp = state.categories[posA];
+      state.categories[posA] = state.categories[posB];
+      state.categories[posB] = tmp;
+    }
+  }
+
+  saveCategories();
+  renderCategoryEditList();
+  refreshCategoryAddPanel();
+}
+
 function renderCategoryEditList() {
   const container = document.getElementById('categoryEditList');
   if (!container) return;
@@ -4413,7 +5030,7 @@ function renderCategoryEditList() {
 
   const primaries = state.categories.filter(c => !c.parentId);
 
-  const renderCategoryItemRow = (cat, isSub = false) => {
+  const renderCategoryItemRow = (cat, isSub = false, posIdx = 0, totalCount = 1) => {
     const item = document.createElement('div');
     item.className = `category-edit-item ${isSub ? 'sub-category-item' : ''}`;
     item.innerHTML = `
@@ -4424,6 +5041,10 @@ function renderCategoryEditList() {
         <input type="text" class="category-edit-input" value="${escapeHtml(cat.name)}" title="点击可就地改名">
       </div>
       <div class="category-edit-actions">
+        <div class="cat-sort-btns">
+          <button type="button" class="cat-move-btn btn-move-up" ${posIdx === 0 ? 'disabled' : ''} title="上移">↑</button>
+          <button type="button" class="cat-move-btn btn-move-down" ${posIdx === totalCount - 1 ? 'disabled' : ''} title="下移">↓</button>
+        </div>
         ${!isSub ? '<button type="button" class="category-add-sub-btn" title="在此分类下新增二级细分">+ 子类</button>' : ''}
         <span style="font-size: 0.7rem; color: ${cat.isWaster ? '#EF4444' : (cat.isProductive ? '#10B981' : '#94A3B8')}; font-weight: 600;">
           ${cat.isWaster ? '摸鱼' : (cat.isProductive ? '专注' : '日常')}
@@ -4431,6 +5052,11 @@ function renderCategoryEditList() {
         <button type="button" class="category-del-btn" title="删除此分类">🗑️</button>
       </div>
     `;
+
+    const upBtn = item.querySelector('.btn-move-up');
+    const downBtn = item.querySelector('.btn-move-down');
+    if (upBtn) upBtn.addEventListener('click', () => moveCategoryOrder(cat.id, -1));
+    if (downBtn) downBtn.addEventListener('click', () => moveCategoryOrder(cat.id, 1));
 
     const nameInput = item.querySelector('.category-edit-input');
     nameInput.addEventListener('change', () => {
@@ -4483,10 +5109,10 @@ function renderCategoryEditList() {
     container.appendChild(item);
   };
 
-  primaries.forEach(pCat => {
-    renderCategoryItemRow(pCat, false);
+  primaries.forEach((pCat, pIdx) => {
+    renderCategoryItemRow(pCat, false, pIdx, primaries.length);
     const subs = state.categories.filter(c => c.parentId === pCat.id);
-    subs.forEach(sCat => renderCategoryItemRow(sCat, true));
+    subs.forEach((sCat, sIdx) => renderCategoryItemRow(sCat, true, sIdx, subs.length));
   });
 }
 

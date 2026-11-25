@@ -6,6 +6,13 @@
 
 ---
 
+## [2026-11-25 20:50] 任务：v1.8.0 四阶段修学游标双入口 & 一二级分类自由排序版落地
+- **决策来源**：用户确认采用入口 A + 入口 B 并行方案，并新增一二级分类位置上下排序需求
+- **改动文件**：`app.js`（`LearningCursorManager`、入口 A 智能联动与备注注入、入口 B 游标看板、`moveCategoryOrder` 排序与 `mergeCategories` 保序）、`index.html`、`style.css`、`sw.js`、`CHANGELOG.md`、`WORKFLOW_LOG.md`、`CONTEXT_HUB.md`（同步升至 `v1.8.0`）。
+- **验证结果**：`node -c app.js` 通过，已推送至 GitHub `main`。
+
+---
+
 ## [2026-11-25 19:57] 任务：v1.7.1 紧急热修复昨日补录提醒传参异常
 - **决策来源**：用户反馈更新 `v1.7.0` 后主界面显示 `0.0h` 与空白（`formatDuration(g.durationMins)` 传参异常导致 `updateUI` 中断）
 - **改动文件**：`app.js`（修复传参并增强 `formatDuration` 兼容与 `try/catch` 隔离）、`index.html`、`sw.js`、`CHANGELOG.md`、`WORKFLOW_LOG.md`、`CONTEXT_HUB.md`（同步升至 `v1.7.1`）。
