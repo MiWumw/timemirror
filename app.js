@@ -508,7 +508,24 @@ const WinnerTrialManager = {
 };
 
 function loadCategories() {
-  return StorageAdapter.load('categories', DEFAULT_CATEGORIES);
+  const list = StorageAdapter.load('categories', DEFAULT_CATEGORIES);
+  // 自动同步：将历史遗留的默认 ✨ 二级子类图标自动继承为所属一级母类的图标
+  let changed = false;
+  if (Array.isArray(list)) {
+    list.forEach(c => {
+      if (c && c.parentId && (!c.icon || c.icon === '✨')) {
+        const parent = list.find(p => p.id === c.parentId);
+        if (parent && parent.icon && parent.icon !== '✨') {
+          c.icon = parent.icon;
+          changed = true;
+        }
+      }
+    });
+    if (changed) {
+      StorageAdapter.save('categories', list);
+    }
+  }
+  return list;
 }
 
 function loadRecords() {
@@ -5140,6 +5157,7 @@ function updateCategoryColorModeUI() {
   if (!parentSel || !primaryRow || !shadeRow || !shadePalette) return;
 
   const parentId = parentSel.value;
+  const iconInp = document.getElementById('newCatIcon');
   if (!parentId) {
     // 一级大类模式：自动匹配高对比不撞色颜色
     primaryRow.style.display = 'flex';
@@ -5148,14 +5166,16 @@ function updateCategoryColorModeUI() {
     if (colorInp) {
       colorInp.value = ColorEngine.pickDistinctPrimaryColor();
     }
+    if (iconInp) iconInp.value = '✨';
   } else {
-    // 二级子类模式：隐藏自由取色，展示同母色渐变色阶矩阵，自动消掉已占用色阶
+    // 二级子类模式：隐藏自由取色，展示同母色渐变色阶矩阵，自动消掉已占用色阶；图标自动继承母类图标
     primaryRow.style.display = 'none';
     shadeRow.style.display = 'block';
     const parent = state.categories.find(c => c.id === parentId);
     if (parent) {
       if (prodInp) prodInp.checked = !!parent.isProductive;
       if (wasteInp) wasteInp.checked = !!parent.isWaster;
+      if (iconInp) iconInp.value = parent.icon || '✨';
     }
 
     const availableShades = ColorEngine.getAvailableShadesForParent(parentId);
@@ -5242,7 +5262,7 @@ function renderCategoryEditList() {
     item.innerHTML = `
       <div class="category-edit-left">
         ${isSub ? '<span class="sub-tree-branch">↳</span>' : ''}
-        <span style="font-size: ${isSub ? '1.05rem' : '1.25rem'};">${cat.icon}</span>
+        <button type="button" class="category-icon-edit-btn" title="点击修改图标">${cat.icon}</button>
         <div class="category-edit-dot" style="background-color: ${cat.color};"></div>
         <input type="text" class="category-edit-input" value="${escapeHtml(cat.name)}" title="点击可就地改名">
       </div>
@@ -5258,6 +5278,65 @@ function renderCategoryEditList() {
         <button type="button" class="category-del-btn" title="删除此分类">🗑️</button>
       </div>
     `;
+
+    // 点击图标按钮：展开就地高频 Emoji 选择条或自定义输入（若改一级图标，同步更新未自定义的子类图标）
+    const iconBtn = item.querySelector('.category-icon-edit-btn');
+    if (iconBtn) {
+      iconBtn.addEventListener('click', () => {
+        const existingPicker = item.nextElementSibling;
+        if (existingPicker && existingPicker.classList.contains('emoji-quick-picker')) {
+          existingPicker.remove();
+          return;
+        }
+        container.querySelectorAll('.emoji-quick-picker').forEach(el => el.remove());
+
+        const applyNewIcon = (newIcon) => {
+          if (!newIcon) return;
+          const oldIcon = cat.icon;
+          cat.icon = newIcon;
+          let syncedCount = 0;
+          if (!cat.parentId) {
+            state.categories.forEach(sub => {
+              if (sub.parentId === cat.id && (sub.icon === oldIcon || sub.icon === '✨')) {
+                sub.icon = newIcon;
+                syncedCount++;
+              }
+            });
+          }
+          saveCategories();
+          renderCategoryEditList();
+          refreshCategoryAddPanel();
+          showToast(syncedCount > 0 ? `已更新图标为 ${newIcon}（并同步至 ${syncedCount} 个子类）` : `已更新图标为 ${newIcon}`);
+        };
+
+        const picker = document.createElement('div');
+        picker.className = 'emoji-quick-picker';
+        const quickEmojis = ['💻', '📖', '📚', '🎬', '📝', '🧠', '🗣️', '🏃', '🧘', '🍳', '🌙', '📱', '🎮', '🚌', '🛒', '👔', '🔥', '✨'];
+        picker.innerHTML = `
+          ${quickEmojis.map(em => `<button type="button" class="emoji-pick-opt">${em}</button>`).join('')}
+          <button type="button" class="emoji-pick-custom">✍️ 自填</button>
+          ${cat.parentId ? `<button type="button" class="emoji-pick-inherit">↳ 继承母类</button>` : ''}
+        `;
+        picker.querySelectorAll('.emoji-pick-opt').forEach(optBtn => {
+          optBtn.addEventListener('click', () => applyNewIcon(optBtn.textContent));
+        });
+        const customBtn = picker.querySelector('.emoji-pick-custom');
+        if (customBtn) {
+          customBtn.addEventListener('click', () => {
+            const val = prompt(`输入「${cat.name}」的新图标 (Emoji)：`, cat.icon);
+            if (val !== null && val.trim()) applyNewIcon(val.trim().slice(0, 4));
+          });
+        }
+        const inheritBtn = picker.querySelector('.emoji-pick-inherit');
+        if (inheritBtn) {
+          inheritBtn.addEventListener('click', () => {
+            const p = state.categories.find(x => x.id === cat.parentId);
+            if (p && p.icon) applyNewIcon(p.icon);
+          });
+        }
+        item.insertAdjacentElement('afterend', picker);
+      });
+    }
 
     const upBtn = item.querySelector('.btn-move-up');
     const downBtn = item.querySelector('.btn-move-down');
@@ -5332,7 +5411,8 @@ function handleAddNewCategory() {
 
   const parentId = parentSel ? parentSel.value : '';
   const name = nameInp ? nameInp.value.trim() : '';
-  const icon = (iconInp && iconInp.value.trim()) ? iconInp.value.trim() : (parentId ? '🔖' : '✨');
+  const parentObj = parentId ? state.categories.find(c => c.id === parentId) : null;
+  const icon = (iconInp && iconInp.value.trim()) ? iconInp.value.trim() : (parentObj ? parentObj.icon : '✨');
   const color = parentId ? (selectedShadeHex || '#3B82F6') : (colorInp ? colorInp.value : ColorEngine.pickDistinctPrimaryColor());
   const isProductive = prodInp ? prodInp.checked : false;
   const isWaster = wasteInp ? wasteInp.checked : false;

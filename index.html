@@ -11,7 +11,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=1.9.1">
+  <link rel="stylesheet" href="style.css?v=1.9.2">
   <!-- Chart.js for smooth interactive data visualisations (Offline bundled) -->
   <script src="chart.umd.min.js"></script>
 </head>
@@ -24,7 +24,7 @@
       <div class="header-top">
         <div class="brand-title">
           <span>🪞 时镜</span>
-          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.9.1</span>
+          <span id="versionBadge" class="brand-badge clickable" title="点击查看版本与更新日志">v1.9.2</span>
         </div>
         <div class="date-navigator">
           <button id="prevDateBtn" class="date-nav-btn" title="前一天">◀</button>
@@ -731,12 +731,27 @@
         </div>
 
             <div class="changelog-timeline">
-    <!-- v1.9.1 Current -->
+    <!-- v1.9.2 Current -->
     <div class="changelog-card current">
       <div class="changelog-header">
         <div class="changelog-version">
+          <span>v1.9.2</span>
+          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 二级图标自动继承母类 & 点击图标秒换版</span>
+        </div>
+        <span class="changelog-date">2026-11-26</span>
+      </div>
+      <ul class="changelog-list">
+        <li><b>🎨 二级分类自动继承一级图标</b>：新建二级活动类型时自动继承所属一级母类图标；加载时自动将历史遗留的默认 <code>✨</code> 二级图标同步刷新为对应一级图标，省心不撞标；</li>
+        <li><b>🖱️ 点击图标即可就地秒换图标</b>：在「⚙️ 自定义/管理分类」中点击任意一级或二级分类图标，立刻展开高频 Emoji 快捷条与自填入口；修改一级图标时会自动同步更新其下未自定义的二级图标！</li>
+      </ul>
+    </div>
+
+    <!-- v1.9.1 Previous -->
+    <div class="changelog-card">
+      <div class="changelog-header">
+        <div class="changelog-version">
           <span>v1.9.1</span>
-          <span class="brand-badge" style="font-size: 0.65rem;">当前使用中 · 修复全部弹窗显示 & 冷冻云端计划拉取版</span>
+          <span class="future-badge" style="background: #E2E8F0; color: #64748B;">历史版本</span>
         </div>
         <span class="changelog-date">2026-11-25</span>
       </div>
@@ -1262,6 +1277,6 @@
 
   </div>
 
-  <script src="app.js?v=1.9.1"></script>
+  <script src="app.js?v=1.9.2"></script>
 </body>
 </html>

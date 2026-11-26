@@ -2633,3 +2633,56 @@ body {
   border-radius: 5px;
   background: #FFFFFF;
 }
+
+/* 分类管理：图标快捷点击编辑与 Emoji 选择条 */
+.category-icon-edit-btn {
+  background: #FFFFFF;
+  border: 1px dashed #CBD5E1;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  font-size: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s, border-color 0.15s;
+}
+
+.category-icon-edit-btn:active {
+  transform: scale(0.92);
+  border-color: var(--primary);
+}
+
+.emoji-quick-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  margin-top: -2px;
+  margin-bottom: 6px;
+  background: #F8FAFC;
+  border: 1px solid #CBD5E1;
+  border-radius: 10px;
+}
+
+.emoji-pick-opt, .emoji-pick-custom, .emoji-pick-inherit {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 6px;
+  min-width: 32px;
+  height: 32px;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0 6px;
+}
+
+.emoji-pick-custom, .emoji-pick-inherit {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--primary);
+}

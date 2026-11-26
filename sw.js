@@ -1,10 +1,10 @@
 // Service Worker for TimeMirror - Network First Strategy
-const CACHE_NAME = 'timemirror-v191-fix-modals-freeze-cloud-plan';
+const CACHE_NAME = 'timemirror-v192-subcat-icon-inherit-picker';
 const ASSETS = [
   './',
   './index.html',
-  './style.css?v=1.9.1',
-  './app.js?v=1.9.1',
+  './style.css?v=1.9.2',
+  './app.js?v=1.9.2',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
